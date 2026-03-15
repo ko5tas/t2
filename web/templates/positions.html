@@ -78,6 +78,17 @@
 
     // Default sort: market value descending
     sortTable(2, 'num', false);
+
+    // Double-click on ticker/name/raw-ticker selects full span text
+    table.addEventListener('dblclick', function(e) {
+        var span = e.target.closest('.ticker, .stock-name, .raw-ticker');
+        if (!span) return;
+        var range = document.createRange();
+        range.selectNodeContents(span);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
 })();
 </script>
 {{end}}
