@@ -1,0 +1,15 @@
+[Unit]
+Description=T2 Trading212 Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/t2
+Restart=on-failure
+RestartSec=5
+User=t2
+Group=t2
+
+[Install]
+WantedBy=multi-user.target
