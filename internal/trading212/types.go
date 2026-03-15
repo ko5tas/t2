@@ -72,6 +72,7 @@ type OrderHistoryItem struct {
 	} `json:"order"`
 	Fill struct {
 		Quantity     float64 `json:"quantity"`
+		Type         string  `json:"type"` // e.g. "MARKET", "STOCK_SPLIT"
 		WalletImpact struct {
 			NetValue float64 `json:"netValue"` // in account currency (GBP)
 		} `json:"walletImpact"`

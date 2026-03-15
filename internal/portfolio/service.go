@@ -81,6 +81,10 @@ func (s *Service) refreshReturns() {
 		log.Printf("order history fetch failed: %v", err)
 	} else {
 		for _, item := range orders {
+			// Skip stock splits — they are zero-sum internal rebookings.
+			if item.Fill.Type == "STOCK_SPLIT" {
+				continue
+			}
 			tr := returns[item.Order.Ticker]
 			switch item.Order.Side {
 			case "BUY":
@@ -148,17 +152,20 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			}
 		}
 
-		ret, retPct := computeReturn(returns[p.Ticker])
+		ret, retPct, invested := computeReturn(returns[p.Ticker])
+		perfPct := computePerformance(p.CurrentValueGBP, ret, invested)
 
 		pos := Position{
-			Ticker:      displayTicker,
-			RawTicker:   p.Ticker,
-			StockName:   stockName,
-			Exchange:    exchange,
-			MarketValue: p.CurrentValueGBP,
-			Quantity:    p.Quantity,
-			Return:      ret,
-			ReturnPct:   retPct,
+			Ticker:         displayTicker,
+			RawTicker:      p.Ticker,
+			StockName:      stockName,
+			Exchange:       exchange,
+			MarketValue:    p.CurrentValueGBP,
+			Quantity:       p.Quantity,
+			Return:         ret,
+			ReturnPct:      retPct,
+			Invested:       invested,
+			PerformancePct: perfPct,
 		}
 		return &pos
 	}
@@ -183,6 +190,7 @@ func (s *Service) GetSummary() *Summary {
 	var result []Position
 	var total float64
 	var totalReturn float64
+	var totalInvested float64
 
 	for _, p := range positions {
 		marketValue := p.CurrentValueGBP
@@ -200,38 +208,54 @@ func (s *Service) GetSummary() *Summary {
 			}
 		}
 
-		ret, retPct := computeReturn(returns[p.Ticker])
+		ret, retPct, invested := computeReturn(returns[p.Ticker])
+		perfPct := computePerformance(marketValue, ret, invested)
 
 		result = append(result, Position{
-			Ticker:      displayTicker,
-			RawTicker:   p.Ticker,
-			StockName:   stockName,
-			Exchange:    exchange,
-			MarketValue: marketValue,
-			Quantity:    p.Quantity,
-			Return:      ret,
-			ReturnPct:   retPct,
+			Ticker:         displayTicker,
+			RawTicker:      p.Ticker,
+			StockName:      stockName,
+			Exchange:       exchange,
+			MarketValue:    marketValue,
+			Quantity:       p.Quantity,
+			Return:         ret,
+			ReturnPct:      retPct,
+			Invested:       invested,
+			PerformancePct: perfPct,
 		})
 		total += marketValue
 		totalReturn += ret
+		totalInvested += invested
 	}
 
 	go s.logCrossCheck(total)
 
+	totalPerfPct := computePerformance(total, totalReturn, totalInvested)
+
 	return &Summary{
-		Positions:        result,
-		TotalMarketValue: total,
-		TotalReturn:      totalReturn,
-		LastUpdated:      time.Now(),
+		Positions:           result,
+		TotalMarketValue:    total,
+		TotalReturn:         totalReturn,
+		TotalInvested:       totalInvested,
+		TotalPerformancePct: totalPerfPct,
+		LastUpdated:         time.Now(),
 	}
 }
 
-func computeReturn(tr tickerReturns) (ret, retPct float64) {
+func computeReturn(tr tickerReturns) (ret, retPct, invested float64) {
 	ret = tr.totalSellProceeds + tr.totalDividends
+	invested = tr.totalBuyCost
 	if tr.totalBuyCost > 0 {
 		retPct = (ret / tr.totalBuyCost) * 100
 	}
 	return
+}
+
+func computePerformance(marketValue, recovered, invested float64) float64 {
+	if invested > 0 {
+		return (marketValue + recovered - invested) / invested * 100
+	}
+	return 0
 }
 
 func (s *Service) refreshMetadata() error {
