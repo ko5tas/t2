@@ -59,6 +59,11 @@
             font-weight: 600;
         }
         th.right { text-align: right; }
+        th.sortable { cursor: pointer; user-select: none; }
+        th.sortable:hover { color: #bbdefb; }
+        th.sortable::after { content: ' \2195'; color: #444; }
+        th.sorted.asc::after { content: ' \2191'; color: #90caf9; }
+        th.sorted.desc::after { content: ' \2193'; color: #90caf9; }
         td {
             padding: 6px 10px;
             border-bottom: 1px solid #222;
@@ -66,6 +71,7 @@
         td.num { color: #666; }
         td .ticker { color: #90caf9; font-weight: bold; }
         td .stock-name { color: #888; margin-left: 6px; }
+        td .raw-ticker { color: #555; margin-left: 6px; font-size: 11px; }
         td.value {
             text-align: right;
             color: #81c784;
