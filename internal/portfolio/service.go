@@ -19,6 +19,9 @@ type Service struct {
 
 	returnsMu sync.RWMutex
 	returns   map[string]tickerReturns // cached per-ticker returns
+
+	summaryMu sync.RWMutex
+	summary   *Summary // cached summary for cheap page polls
 }
 
 // NewService creates a new portfolio service and loads initial metadata.
@@ -62,11 +65,29 @@ func (s *Service) StartReturnsRefresh(interval time.Duration) {
 		// Initial fetch after a short delay to let metadata settle.
 		time.Sleep(5 * time.Second)
 		s.refreshReturns()
+		s.refreshSummary() // update summary now that returns are available
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for range ticker.C {
 			s.refreshReturns()
+			s.refreshSummary()
+		}
+	}()
+}
+
+// StartSummaryRefresh launches a background goroutine that builds
+// the cached summary immediately (positions with dashes), then
+// refreshes it periodically so the page always has fresh data.
+func (s *Service) StartSummaryRefresh(interval time.Duration) {
+	go func() {
+		// Build initial summary right away (will show dashes for returns).
+		s.refreshSummary()
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.refreshSummary()
 		}
 	}()
 }
@@ -178,14 +199,23 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 	return nil
 }
 
-// GetSummary fetches current positions and returns a portfolio summary.
+// GetSummary returns the cached portfolio summary.
+// Returns a placeholder if no data has been fetched yet.
 func (s *Service) GetSummary() *Summary {
+	s.summaryMu.RLock()
+	defer s.summaryMu.RUnlock()
+	if s.summary != nil {
+		return s.summary
+	}
+	return &Summary{LastUpdated: time.Now()}
+}
+
+// refreshSummary fetches current positions from the API and rebuilds the cached summary.
+func (s *Service) refreshSummary() {
 	positions, err := s.client.GetPositions()
 	if err != nil {
-		return &Summary{
-			LastUpdated: time.Now(),
-			Error:       err.Error(),
-		}
+		log.Printf("summary refresh failed: %v", err)
+		return // keep serving stale cache rather than overwriting with error
 	}
 
 	returns := s.cachedReturns()
@@ -238,7 +268,7 @@ func (s *Service) GetSummary() *Summary {
 
 	totalPerfPct := computePerformance(total, totalReturn, totalInvested)
 
-	return &Summary{
+	summary := &Summary{
 		Positions:           result,
 		TotalMarketValue:    total,
 		TotalReturn:         totalReturn,
@@ -246,6 +276,10 @@ func (s *Service) GetSummary() *Summary {
 		TotalPerformancePct: totalPerfPct,
 		LastUpdated:         time.Now(),
 	}
+
+	s.summaryMu.Lock()
+	s.summary = summary
+	s.summaryMu.Unlock()
 }
 
 func computeReturn(tr tickerReturns) (ret, retPct, invested float64) {
