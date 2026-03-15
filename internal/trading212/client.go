@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -79,27 +80,19 @@ func (c *Client) GetAccountCash() (*AccountCash, error) {
 }
 
 // GetOrderHistory fetches all historical orders, paginating through all pages.
+// Rate limit is 6 req/60s so we sleep 11s between pages and retry on 429.
 func (c *Client) GetOrderHistory() ([]OrderHistoryItem, error) {
 	var all []OrderHistoryItem
 	path := "/equity/history/orders?limit=50"
 	for path != "" {
 		var page OrderHistoryResponse
-		if err := c.get(path, &page); err != nil {
+		if err := c.getWithRetry(path, &page); err != nil {
 			return nil, fmt.Errorf("fetching order history: %w", err)
 		}
 		all = append(all, page.Items...)
-		if page.NextPagePath != nil {
-			// NextPagePath is a full path like "/api/v0/equity/history/orders?cursor=..."
-			// Strip the base prefix so our get() method can prepend baseURL.
-			p := *page.NextPagePath
-			const prefix = "/api/v0"
-			if len(p) > len(prefix) && p[:len(prefix)] == prefix {
-				p = p[len(prefix):]
-			}
-			path = p
-			time.Sleep(1 * time.Second) // respect rate limits
-		} else {
-			path = ""
+		path = nextPage(page.NextPagePath)
+		if path != "" {
+			time.Sleep(11 * time.Second)
 		}
 	}
 	return all, nil
@@ -111,23 +104,49 @@ func (c *Client) GetDividendHistory() ([]DividendHistoryItem, error) {
 	path := "/equity/history/dividends?limit=50"
 	for path != "" {
 		var page DividendHistoryResponse
-		if err := c.get(path, &page); err != nil {
+		if err := c.getWithRetry(path, &page); err != nil {
 			return nil, fmt.Errorf("fetching dividend history: %w", err)
 		}
 		all = append(all, page.Items...)
-		if page.NextPagePath != nil {
-			p := *page.NextPagePath
-			const prefix = "/api/v0"
-			if len(p) > len(prefix) && p[:len(prefix)] == prefix {
-				p = p[len(prefix):]
-			}
-			path = p
-			time.Sleep(1 * time.Second)
-		} else {
-			path = ""
+		path = nextPage(page.NextPagePath)
+		if path != "" {
+			time.Sleep(11 * time.Second)
 		}
 	}
 	return all, nil
+}
+
+// nextPage strips the /api/v0 prefix from a nextPagePath pointer.
+func nextPage(p *string) string {
+	if p == nil {
+		return ""
+	}
+	path := *p
+	const prefix = "/api/v0"
+	if len(path) > len(prefix) && path[:len(prefix)] == prefix {
+		path = path[len(prefix):]
+	}
+	return path
+}
+
+// getWithRetry calls get, retrying up to 3 times on 429 rate limit errors.
+func (c *Client) getWithRetry(path string, result any) error {
+	for attempt := 0; attempt < 3; attempt++ {
+		err := c.get(path, result)
+		if err == nil {
+			return nil
+		}
+		if !isRateLimited(err) {
+			return err
+		}
+		log.Printf("rate limited, waiting 30s before retry (attempt %d/3)", attempt+1)
+		time.Sleep(30 * time.Second)
+	}
+	return c.get(path, result) // final attempt
+}
+
+func isRateLimited(err error) bool {
+	return err != nil && fmt.Sprintf("%v", err) == "rate limited by Trading212 API (429). Try again later"
 }
 
 func (c *Client) get(path string, result any) error {

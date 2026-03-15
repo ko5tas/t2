@@ -202,7 +202,7 @@ func (s *Service) GetSummary() *Summary {
 }
 
 func computeReturn(tr tickerReturns) (ret, retPct float64) {
-	ret = tr.totalSellProceeds + tr.totalDividends - tr.totalBuyCost
+	ret = tr.totalSellProceeds + tr.totalDividends
 	if tr.totalBuyCost > 0 {
 		retPct = (ret / tr.totalBuyCost) * 100
 	}
