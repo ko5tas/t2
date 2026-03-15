@@ -1,6 +1,5 @@
 # Binary
-t2
-/cmd/t2/t2
+/t2
 
 # Config with secrets
 config.yaml

@@ -28,11 +28,25 @@ func NewClient(baseURL, apiKey, apiSecret string) *Client {
 	}
 }
 
-// GetPositions fetches all open positions.
+// GetPositions fetches all open positions via /equity/positions.
+// This endpoint returns walletImpact.currentValue which is the position's
+// market value already converted to account currency (GBP) by Trading212.
 func (c *Client) GetPositions() ([]Position, error) {
-	var positions []Position
-	if err := c.get("/equity/portfolio", &positions); err != nil {
+	var raw []wirePosition
+	if err := c.get("/equity/positions", &raw); err != nil {
 		return nil, fmt.Errorf("fetching positions: %w", err)
+	}
+
+	positions := make([]Position, len(raw))
+	for i, r := range raw {
+		positions[i] = Position{
+			Ticker:          r.Instrument.Ticker,
+			Name:            r.Instrument.Name,
+			Quantity:        r.Quantity,
+			AveragePrice:    r.AveragePrice,
+			CurrentPrice:    r.CurrentPrice,
+			CurrentValueGBP: r.WalletImpact.CurrentValue,
+		}
 	}
 	return positions, nil
 }

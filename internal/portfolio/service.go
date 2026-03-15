@@ -62,16 +62,18 @@ func (s *Service) GetSummary() *Summary {
 	var total float64
 
 	for _, p := range positions {
-		// Calculate £ market value.
-		marketValue := (p.AveragePrice * p.Quantity) + p.Ppl + p.FxPpl
+		// Use T212's own GBP value from walletImpact.currentValue.
+		marketValue := p.CurrentValueGBP
 
-		// Look up instrument metadata.
+		// Look up instrument metadata for display name and exchange.
 		displayTicker := p.Ticker
-		stockName := ""
+		stockName := p.Name
 		exchange := "Unknown"
 		if inst, ok := s.instruments[p.Ticker]; ok {
 			displayTicker = tickerDisplay(inst)
-			stockName = inst.Name
+			if stockName == "" {
+				stockName = inst.Name
+			}
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
