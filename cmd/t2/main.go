@@ -24,6 +24,7 @@ func main() {
 		log.Fatalf("portfolio service: %v", err)
 	}
 	svc.StartMetadataRefresh()
+	svc.StartReturnsRefresh(cfg.RefreshInterval)
 
 	handler := web.NewHandler(svc, cfg.RefreshInterval)
 	mux := http.NewServeMux()
