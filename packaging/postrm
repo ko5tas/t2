@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+if [ "$1" = "purge" ]; then
+    deluser --system t2 || true
+    rm -rf /etc/t2
+fi

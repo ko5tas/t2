@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+# Create system user on first install
+if ! getent passwd t2 >/dev/null; then
+    adduser --system --group --no-create-home --shell /usr/sbin/nologin t2
+fi
+
+# Ensure config directory permissions
+chown root:t2 /etc/t2/config.yaml
+chmod 0640 /etc/t2/config.yaml
+
+systemctl daemon-reload
+systemctl enable t2
+systemctl restart t2

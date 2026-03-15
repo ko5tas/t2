@@ -28,6 +28,46 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 
 3. Open http://localhost:8080
 
+## Installation (Debian/DietPi)
+
+### Add the apt repository
+
+```bash
+# Import GPG key
+curl -fsSL https://ko5tas.github.io/t2/t2-repo.gpg | sudo gpg --dearmor -o /usr/share/keyrings/t2-repo.gpg
+
+# Add repository
+echo "deb [signed-by=/usr/share/keyrings/t2-repo.gpg] https://ko5tas.github.io/t2 stable main" | sudo tee /etc/apt/sources.list.d/t2.list
+
+# Install
+sudo apt update && sudo apt install t2
+```
+
+### Configure
+
+Edit `/etc/t2/config.yaml` with your Trading212 API credentials, then restart:
+
+```bash
+sudo systemctl restart t2
+```
+
+### Upgrade
+
+```bash
+sudo apt update && sudo apt upgrade
+```
+
+The service restarts automatically after upgrade.
+
+### Service management
+
+```bash
+sudo systemctl status t2    # Check status
+sudo systemctl restart t2   # Restart
+sudo systemctl stop t2      # Stop
+sudo journalctl -u t2 -f    # View logs
+```
+
 ## Configuration
 
 The config file is searched in order:
