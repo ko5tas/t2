@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ko5tas/t2/internal/portfolio"
@@ -44,10 +45,11 @@ func formatNumber(v float64) string {
 
 // Handler holds the HTTP handlers for the web dashboard.
 type Handler struct {
-	service        *portfolio.Service
-	indexTmpl      *template.Template
-	positionsTmpl  *template.Template
-	refreshSeconds int
+	service          *portfolio.Service
+	indexTmpl        *template.Template
+	positionsTmpl    *template.Template
+	positionRowTmpl  *template.Template
+	refreshSeconds   int
 }
 
 // NewHandler creates a new web handler.
@@ -58,12 +60,16 @@ func NewHandler(service *portfolio.Service, refreshInterval time.Duration) *Hand
 	positionsTmpl := template.Must(
 		template.New("positions.html").Funcs(funcMap).ParseFS(webfs.TemplateFS, "templates/positions.html"),
 	)
+	positionRowTmpl := template.Must(
+		template.New("position_row.html").Funcs(funcMap).ParseFS(webfs.TemplateFS, "templates/position_row.html"),
+	)
 
 	return &Handler{
-		service:        service,
-		indexTmpl:      indexTmpl,
-		positionsTmpl:  positionsTmpl,
-		refreshSeconds: int(refreshInterval.Seconds()),
+		service:         service,
+		indexTmpl:       indexTmpl,
+		positionsTmpl:   positionsTmpl,
+		positionRowTmpl: positionRowTmpl,
+		refreshSeconds:  int(refreshInterval.Seconds()),
 	}
 }
 
@@ -71,6 +77,7 @@ func NewHandler(service *portfolio.Service, refreshInterval time.Duration) *Hand
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/", h.handleIndex)
 	mux.HandleFunc("/positions", h.handlePositions)
+	mux.HandleFunc("/position/", h.handlePosition)
 
 	staticSub, err := fs.Sub(webfs.StaticFS, "static")
 	if err != nil {
@@ -93,6 +100,25 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.indexTmpl.Execute(w, data); err != nil {
+		log.Printf("template error: %v", err)
+	}
+}
+
+func (h *Handler) handlePosition(w http.ResponseWriter, r *http.Request) {
+	rawTicker := strings.TrimPrefix(r.URL.Path, "/position/")
+	if rawTicker == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	pos := h.service.GetPosition(rawTicker)
+	if pos == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.positionRowTmpl.Execute(w, pos); err != nil {
 		log.Printf("template error: %v", err)
 	}
 }

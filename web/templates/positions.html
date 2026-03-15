@@ -11,6 +11,7 @@
             <th class="sortable" data-col="1" data-type="str">Name</th>
             <th class="sortable sorted desc right" data-col="2" data-type="num">Market Value</th>
             <th class="sortable" data-col="3" data-type="str">Exchange</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -20,12 +21,14 @@
             <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span></td>
             <td class="value" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}}</td>
             <td class="exchange">{{$p.Exchange}}</td>
+            <td class="refresh-cell"><button class="refresh-btn" hx-get="/position/{{$p.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
         </tr>
         {{end}}
         <tr class="total">
             <td></td>
             <td>Total</td>
             <td class="value">{{formatGBP .TotalMarketValue}}</td>
+            <td></td>
             <td></td>
         </tr>
     </tbody>

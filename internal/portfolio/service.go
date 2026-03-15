@@ -45,6 +45,45 @@ func (s *Service) StartMetadataRefresh() {
 	}()
 }
 
+// GetPosition fetches a single position by its raw ticker (e.g. "AAPL_US_EQ").
+// It calls the same bulk API but returns only the matching position.
+func (s *Service) GetPosition(rawTicker string) *Position {
+	positions, err := s.client.GetPositions()
+	if err != nil {
+		return nil
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, p := range positions {
+		if p.Ticker != rawTicker {
+			continue
+		}
+		displayTicker := p.Ticker
+		stockName := p.Name
+		exchange := "Unknown"
+		if inst, ok := s.instruments[p.Ticker]; ok {
+			displayTicker = tickerDisplay(inst)
+			if stockName == "" {
+				stockName = inst.Name
+			}
+			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
+				exchange = exName
+			}
+		}
+		pos := Position{
+			Ticker:      displayTicker,
+			RawTicker:   p.Ticker,
+			StockName:   stockName,
+			Exchange:    exchange,
+			MarketValue: p.CurrentValueGBP,
+		}
+		return &pos
+	}
+	return nil
+}
+
 // GetSummary fetches current positions and returns a portfolio summary.
 func (s *Service) GetSummary() *Summary {
 	positions, err := s.client.GetPositions()
