@@ -98,7 +98,13 @@ jobs:
       - name: Generate Release file
         run: |
           cd repo
-          apt-ftparchive release dists/stable/ > dists/stable/Release
+          {
+            echo "Suite: stable"
+            echo "Codename: stable"
+            echo "Architectures: arm64 armhf"
+            echo "Components: main"
+            apt-ftparchive release dists/stable/
+          } > dists/stable/Release
 
       - name: Import GPG key and sign
         env:
