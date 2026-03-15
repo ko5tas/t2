@@ -25,10 +25,13 @@
             <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span></td>
             <td class="value" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}} <button class="refresh-btn" hx-get="/position/{{$p.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
             <td class="exchange">{{$p.Exchange}}</td>
-            <td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}</td>
+            {{if gt $p.Invested 0.0}}<td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}</td>
             <td class="value" data-val="{{$p.Invested}}">{{formatGBP $p.Invested}} bought</td>
             <td class="value {{returnClass $p.ReturnPct}}" data-val="{{$p.ReturnPct}}">{{formatPct $p.ReturnPct}}</td>
-            <td class="value {{performanceClass $p.PerformancePct}}" data-val="{{$p.PerformancePct}}">{{formatPct $p.PerformancePct}}</td>
+            <td class="value {{performanceClass $p.PerformancePct}}" data-val="{{$p.PerformancePct}}">{{formatPct $p.PerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td class="value">—</td>
+            <td class="value">—</td>
+            <td class="value">—</td>{{end}}
             <td class="value" data-val="{{$p.Quantity}}">{{formatQty $p.Quantity}}</td>
         </tr>
         {{end}}
@@ -37,10 +40,13 @@
             <td>Total</td>
             <td class="value">{{formatGBP .TotalMarketValue}}</td>
             <td></td>
-            <td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
+            {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
             <td class="value">{{formatGBP .TotalInvested}} bought</td>
             <td></td>
-            <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>
+            <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td class="value">—</td>
+            <td></td>
+            <td class="value">—</td>{{end}}
             <td></td>
         </tr>
     </tbody>
