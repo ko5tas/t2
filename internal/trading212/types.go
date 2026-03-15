@@ -1,38 +1,49 @@
 package trading212
 
-// Position represents an open position from the portfolio endpoint.
+// wirePosition is the JSON shape returned by GET /api/v0/equity/positions.
+// This is an undocumented but richer endpoint that includes walletImpact
+// with the current value already converted to account currency (GBP).
+type wirePosition struct {
+	Instrument struct {
+		Ticker string `json:"ticker"`
+		Name   string `json:"name"`
+	} `json:"instrument"`
+	Quantity     float64 `json:"quantity"`
+	AveragePrice float64 `json:"averagePricePaid"`
+	CurrentPrice float64 `json:"currentPrice"`
+	WalletImpact struct {
+		CurrentValue float64 `json:"currentValue"`
+	} `json:"walletImpact"`
+}
+
+// Position is the parsed position with the GBP market value from T212.
 type Position struct {
-	Ticker          string  `json:"ticker"`
-	Quantity        float64 `json:"quantity"`
-	AveragePrice    float64 `json:"averagePrice"`
-	CurrentPrice    float64 `json:"currentPrice"`
-	Ppl             float64 `json:"ppl"`
-	FxPpl           float64 `json:"fxPpl"`
-	InitialFillDate string  `json:"initialFillDate"`
-	Frontend        string  `json:"frontend"`
-	MaxBuy          float64 `json:"maxBuy"`
-	MaxSell         float64 `json:"maxSell"`
-	PieQuantity     float64 `json:"pieQuantity"`
+	Ticker          string
+	Name            string
+	Quantity        float64
+	AveragePrice    float64
+	CurrentPrice    float64
+	CurrentValueGBP float64 // from walletImpact.currentValue — already in account currency
 }
 
 // Instrument represents instrument metadata.
 type Instrument struct {
-	Ticker             string  `json:"ticker"`
-	Name               string  `json:"name"`
-	ShortName          string  `json:"shortName"`
-	Type               string  `json:"type"`
-	CurrencyCode       string  `json:"currencyCode"`
-	ISIN               string  `json:"isin"`
-	MaxOpenQuantity    float64 `json:"maxOpenQuantity"`
-	AddedOn            string  `json:"addedOn"`
-	WorkingScheduleID  int     `json:"workingScheduleId"`
+	Ticker            string  `json:"ticker"`
+	Name              string  `json:"name"`
+	ShortName         string  `json:"shortName"`
+	Type              string  `json:"type"`
+	CurrencyCode      string  `json:"currencyCode"`
+	ISIN              string  `json:"isin"`
+	MaxOpenQuantity   float64 `json:"maxOpenQuantity"`
+	AddedOn           string  `json:"addedOn"`
+	WorkingScheduleID int     `json:"workingScheduleId"`
 }
 
 // Exchange represents an exchange with its working schedules.
 type Exchange struct {
-	ID               int                `json:"id"`
-	Name             string             `json:"name"`
-	WorkingSchedules []WorkingSchedule  `json:"workingSchedules"`
+	ID               int               `json:"id"`
+	Name             string            `json:"name"`
+	WorkingSchedules []WorkingSchedule `json:"workingSchedules"`
 }
 
 // WorkingSchedule represents a trading schedule.
