@@ -17,7 +17,7 @@
         {{range $i, $p := .Positions}}
         <tr>
             <td class="num">{{inc $i}}</td>
-            <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span></td>
+            <td><span class="ticker">{{$p.Ticker}}</span> <span class="stock-name">{{$p.StockName}}</span> <span class="raw-ticker">{{$p.RawTicker}}</span></td>
             <td class="value" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}}</td>
             <td class="exchange">{{$p.Exchange}}</td>
         </tr>
