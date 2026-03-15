@@ -61,6 +61,10 @@ func (s *Service) fetchReturns() map[string]tickerReturns {
 		log.Printf("order history fetch failed: %v", err)
 	} else {
 		for _, item := range orders {
+			// Skip stock splits — they are zero-sum internal rebookings.
+			if item.Fill.Type == "STOCK_SPLIT" {
+				continue
+			}
 			tr := returns[item.Order.Ticker]
 			switch item.Order.Side {
 			case "BUY":
@@ -120,7 +124,7 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			}
 		}
 
-		ret, retPct := computeReturn(returns[p.Ticker])
+		ret, retPct, invested := computeReturn(returns[p.Ticker])
 
 		pos := Position{
 			Ticker:      displayTicker,
@@ -131,6 +135,7 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			Quantity:    p.Quantity,
 			Return:      ret,
 			ReturnPct:   retPct,
+			Invested:    invested,
 		}
 		return &pos
 	}
@@ -155,6 +160,7 @@ func (s *Service) GetSummary() *Summary {
 	var result []Position
 	var total float64
 	var totalReturn float64
+	var totalInvested float64
 
 	for _, p := range positions {
 		// Use T212's own GBP value from walletImpact.currentValue.
@@ -174,7 +180,7 @@ func (s *Service) GetSummary() *Summary {
 			}
 		}
 
-		ret, retPct := computeReturn(returns[p.Ticker])
+		ret, retPct, invested := computeReturn(returns[p.Ticker])
 
 		result = append(result, Position{
 			Ticker:      displayTicker,
@@ -185,9 +191,11 @@ func (s *Service) GetSummary() *Summary {
 			Quantity:    p.Quantity,
 			Return:      ret,
 			ReturnPct:   retPct,
+			Invested:    invested,
 		})
 		total += marketValue
 		totalReturn += ret
+		totalInvested += invested
 	}
 
 	// Log cross-check against account cash.
@@ -197,12 +205,14 @@ func (s *Service) GetSummary() *Summary {
 		Positions:        result,
 		TotalMarketValue: total,
 		TotalReturn:      totalReturn,
+		TotalInvested:    totalInvested,
 		LastUpdated:      time.Now(),
 	}
 }
 
-func computeReturn(tr tickerReturns) (ret, retPct float64) {
+func computeReturn(tr tickerReturns) (ret, retPct, invested float64) {
 	ret = tr.totalSellProceeds + tr.totalDividends
+	invested = tr.totalBuyCost
 	if tr.totalBuyCost > 0 {
 		retPct = (ret / tr.totalBuyCost) * 100
 	}
