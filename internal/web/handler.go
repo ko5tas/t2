@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,12 +40,25 @@ var funcMap = template.FuncMap{
 		}
 		return ""
 	},
+	"nextDir": func(currentSort, currentDir, col string) string {
+		return nextDir(currentSort, currentDir, col)
+	},
+	"eq2": func(a, b string) bool { return a == b },
 	"performanceClass": func(v float64) string {
 		if v < 0 {
 			return "perf-negative"
 		}
+		if v >= 100 {
+			return "perf-legendary"
+		}
 		if v >= 50 {
 			return "perf-positive"
+		}
+		if v >= 25 {
+			return "perf-good"
+		}
+		if v < 10 {
+			return "perf-warning"
 		}
 		return ""
 	},
@@ -150,11 +164,78 @@ func (h *Handler) handlePosition(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// sortField maps query param values to position field accessors.
+var sortFields = map[string]func(p portfolio.Position) float64{
+	"market_value":   func(p portfolio.Position) float64 { return p.MarketValue },
+	"recovered":      func(p portfolio.Position) float64 { return p.Return },
+	"invested":       func(p portfolio.Position) float64 { return p.Invested },
+	"recovered_pct":  func(p portfolio.Position) float64 { return p.ReturnPct },
+	"performance":    func(p portfolio.Position) float64 { return p.PerformancePct },
+	"qty":            func(p portfolio.Position) float64 { return p.Quantity },
+}
+
+var sortStringFields = map[string]func(p portfolio.Position) string{
+	"name":     func(p portfolio.Position) string { return p.Ticker },
+	"exchange": func(p portfolio.Position) string { return p.Exchange },
+}
+
+type positionsData struct {
+	*portfolio.Summary
+	Sort           string
+	Dir            string
+	RefreshSeconds int
+}
+
+// nextDir returns the toggled direction for a column header.
+func nextDir(currentSort, currentDir, col string) string {
+	if currentSort == col {
+		if currentDir == "desc" {
+			return "asc"
+		}
+		return "desc"
+	}
+	return "desc" // default to descending when clicking a new column
+}
+
 func (h *Handler) handlePositions(w http.ResponseWriter, r *http.Request) {
 	summary := h.service.GetSummary()
 
+	sortBy := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
+	if sortBy == "" {
+		sortBy = "market_value"
+	}
+	if dir == "" {
+		dir = "desc"
+	}
+	asc := dir == "asc"
+
+	// Sort positions
+	if fn, ok := sortFields[sortBy]; ok {
+		sort.SliceStable(summary.Positions, func(i, j int) bool {
+			if asc {
+				return fn(summary.Positions[i]) < fn(summary.Positions[j])
+			}
+			return fn(summary.Positions[i]) > fn(summary.Positions[j])
+		})
+	} else if fn, ok := sortStringFields[sortBy]; ok {
+		sort.SliceStable(summary.Positions, func(i, j int) bool {
+			if asc {
+				return strings.ToLower(fn(summary.Positions[i])) < strings.ToLower(fn(summary.Positions[j]))
+			}
+			return strings.ToLower(fn(summary.Positions[i])) > strings.ToLower(fn(summary.Positions[j]))
+		})
+	}
+
+	data := positionsData{
+		Summary:        summary,
+		Sort:           sortBy,
+		Dir:            dir,
+		RefreshSeconds: h.refreshSeconds,
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.positionsTmpl.Execute(w, summary); err != nil {
+	if err := h.positionsTmpl.Execute(w, data); err != nil {
 		log.Printf("template error: %v", err)
 	}
 }
