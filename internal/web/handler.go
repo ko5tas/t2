@@ -39,6 +39,15 @@ var funcMap = template.FuncMap{
 		}
 		return ""
 	},
+	"performanceClass": func(v float64) string {
+		if v < 0 {
+			return "perf-negative"
+		}
+		if v >= 50 {
+			return "perf-positive"
+		}
+		return ""
+	},
 }
 
 func formatNumber(v float64) string {

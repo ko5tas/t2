@@ -125,17 +125,19 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 		}
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
+		perfPct := computePerformance(p.CurrentValueGBP, ret, invested)
 
 		pos := Position{
-			Ticker:      displayTicker,
-			RawTicker:   p.Ticker,
-			StockName:   stockName,
-			Exchange:    exchange,
-			MarketValue: p.CurrentValueGBP,
-			Quantity:    p.Quantity,
-			Return:      ret,
-			ReturnPct:   retPct,
-			Invested:    invested,
+			Ticker:         displayTicker,
+			RawTicker:      p.Ticker,
+			StockName:      stockName,
+			Exchange:       exchange,
+			MarketValue:    p.CurrentValueGBP,
+			Quantity:       p.Quantity,
+			Return:         ret,
+			ReturnPct:      retPct,
+			Invested:       invested,
+			PerformancePct: perfPct,
 		}
 		return &pos
 	}
@@ -181,17 +183,19 @@ func (s *Service) GetSummary() *Summary {
 		}
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
+		perfPct := computePerformance(marketValue, ret, invested)
 
 		result = append(result, Position{
-			Ticker:      displayTicker,
-			RawTicker:   p.Ticker,
-			StockName:   stockName,
-			Exchange:    exchange,
-			MarketValue: marketValue,
-			Quantity:    p.Quantity,
-			Return:      ret,
-			ReturnPct:   retPct,
-			Invested:    invested,
+			Ticker:         displayTicker,
+			RawTicker:      p.Ticker,
+			StockName:      stockName,
+			Exchange:       exchange,
+			MarketValue:    marketValue,
+			Quantity:       p.Quantity,
+			Return:         ret,
+			ReturnPct:      retPct,
+			Invested:       invested,
+			PerformancePct: perfPct,
 		})
 		total += marketValue
 		totalReturn += ret
@@ -201,12 +205,15 @@ func (s *Service) GetSummary() *Summary {
 	// Log cross-check against account cash.
 	go s.logCrossCheck(total)
 
+	totalPerfPct := computePerformance(total, totalReturn, totalInvested)
+
 	return &Summary{
-		Positions:        result,
-		TotalMarketValue: total,
-		TotalReturn:      totalReturn,
-		TotalInvested:    totalInvested,
-		LastUpdated:      time.Now(),
+		Positions:           result,
+		TotalMarketValue:    total,
+		TotalReturn:         totalReturn,
+		TotalInvested:       totalInvested,
+		TotalPerformancePct: totalPerfPct,
+		LastUpdated:         time.Now(),
 	}
 }
 
@@ -217,6 +224,13 @@ func computeReturn(tr tickerReturns) (ret, retPct, invested float64) {
 		retPct = (ret / tr.totalBuyCost) * 100
 	}
 	return
+}
+
+func computePerformance(marketValue, recovered, invested float64) float64 {
+	if invested > 0 {
+		return (marketValue + recovered - invested) / invested * 100
+	}
+	return 0
 }
 
 func (s *Service) refreshMetadata() error {
