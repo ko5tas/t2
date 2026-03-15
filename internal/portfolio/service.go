@@ -45,6 +45,51 @@ func (s *Service) StartMetadataRefresh() {
 	}()
 }
 
+// tickerReturns holds computed return data for a single ticker.
+type tickerReturns struct {
+	totalBuyCost     float64
+	totalSellProceeds float64
+	totalDividends   float64
+}
+
+// fetchReturns fetches order and dividend history and computes per-ticker returns.
+func (s *Service) fetchReturns() map[string]tickerReturns {
+	returns := make(map[string]tickerReturns)
+
+	orders, err := s.client.GetOrderHistory()
+	if err != nil {
+		log.Printf("order history fetch failed: %v", err)
+	} else {
+		for _, item := range orders {
+			tr := returns[item.Order.Ticker]
+			switch item.Order.Side {
+			case "BUY":
+				tr.totalBuyCost += item.Fill.WalletImpact.NetValue
+			case "SELL":
+				tr.totalSellProceeds += item.Fill.WalletImpact.NetValue
+			}
+			returns[item.Order.Ticker] = tr
+		}
+		log.Printf("loaded %d historical orders", len(orders))
+	}
+
+	time.Sleep(2 * time.Second) // respect rate limits between endpoints
+
+	dividends, err := s.client.GetDividendHistory()
+	if err != nil {
+		log.Printf("dividend history fetch failed: %v", err)
+	} else {
+		for _, item := range dividends {
+			tr := returns[item.Ticker]
+			tr.totalDividends += item.Amount
+			returns[item.Ticker] = tr
+		}
+		log.Printf("loaded %d historical dividends", len(dividends))
+	}
+
+	return returns
+}
+
 // GetPosition fetches a single position by its raw ticker (e.g. "AAPL_US_EQ").
 // It calls the same bulk API but returns only the matching position.
 func (s *Service) GetPosition(rawTicker string) *Position {
@@ -52,6 +97,8 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 	if err != nil {
 		return nil
 	}
+
+	returns := s.fetchReturns()
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -72,12 +119,18 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 				exchange = exName
 			}
 		}
+
+		ret, retPct := computeReturn(returns[p.Ticker])
+
 		pos := Position{
 			Ticker:      displayTicker,
 			RawTicker:   p.Ticker,
 			StockName:   stockName,
 			Exchange:    exchange,
 			MarketValue: p.CurrentValueGBP,
+			Quantity:    p.Quantity,
+			Return:      ret,
+			ReturnPct:   retPct,
 		}
 		return &pos
 	}
@@ -94,11 +147,14 @@ func (s *Service) GetSummary() *Summary {
 		}
 	}
 
+	returns := s.fetchReturns()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var result []Position
 	var total float64
+	var totalReturn float64
 
 	for _, p := range positions {
 		// Use T212's own GBP value from walletImpact.currentValue.
@@ -118,14 +174,20 @@ func (s *Service) GetSummary() *Summary {
 			}
 		}
 
+		ret, retPct := computeReturn(returns[p.Ticker])
+
 		result = append(result, Position{
 			Ticker:      displayTicker,
 			RawTicker:   p.Ticker,
 			StockName:   stockName,
 			Exchange:    exchange,
 			MarketValue: marketValue,
+			Quantity:    p.Quantity,
+			Return:      ret,
+			ReturnPct:   retPct,
 		})
 		total += marketValue
+		totalReturn += ret
 	}
 
 	// Log cross-check against account cash.
@@ -134,8 +196,17 @@ func (s *Service) GetSummary() *Summary {
 	return &Summary{
 		Positions:        result,
 		TotalMarketValue: total,
+		TotalReturn:      totalReturn,
 		LastUpdated:      time.Now(),
 	}
+}
+
+func computeReturn(tr tickerReturns) (ret, retPct float64) {
+	ret = tr.totalSellProceeds + tr.totalDividends - tr.totalBuyCost
+	if tr.totalBuyCost > 0 {
+		retPct = (ret / tr.totalBuyCost) * 100
+	}
+	return
 }
 
 func (s *Service) refreshMetadata() error {

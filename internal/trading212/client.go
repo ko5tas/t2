@@ -78,6 +78,58 @@ func (c *Client) GetAccountCash() (*AccountCash, error) {
 	return &cash, nil
 }
 
+// GetOrderHistory fetches all historical orders, paginating through all pages.
+func (c *Client) GetOrderHistory() ([]OrderHistoryItem, error) {
+	var all []OrderHistoryItem
+	path := "/equity/history/orders?limit=50"
+	for path != "" {
+		var page OrderHistoryResponse
+		if err := c.get(path, &page); err != nil {
+			return nil, fmt.Errorf("fetching order history: %w", err)
+		}
+		all = append(all, page.Items...)
+		if page.NextPagePath != nil {
+			// NextPagePath is a full path like "/api/v0/equity/history/orders?cursor=..."
+			// Strip the base prefix so our get() method can prepend baseURL.
+			p := *page.NextPagePath
+			const prefix = "/api/v0"
+			if len(p) > len(prefix) && p[:len(prefix)] == prefix {
+				p = p[len(prefix):]
+			}
+			path = p
+			time.Sleep(1 * time.Second) // respect rate limits
+		} else {
+			path = ""
+		}
+	}
+	return all, nil
+}
+
+// GetDividendHistory fetches all historical dividends, paginating through all pages.
+func (c *Client) GetDividendHistory() ([]DividendHistoryItem, error) {
+	var all []DividendHistoryItem
+	path := "/equity/history/dividends?limit=50"
+	for path != "" {
+		var page DividendHistoryResponse
+		if err := c.get(path, &page); err != nil {
+			return nil, fmt.Errorf("fetching dividend history: %w", err)
+		}
+		all = append(all, page.Items...)
+		if page.NextPagePath != nil {
+			p := *page.NextPagePath
+			const prefix = "/api/v0"
+			if len(p) > len(prefix) && p[:len(prefix)] == prefix {
+				p = p[len(prefix):]
+			}
+			path = p
+			time.Sleep(1 * time.Second)
+		} else {
+			path = ""
+		}
+	}
+	return all, nil
+}
+
 func (c *Client) get(path string, result any) error {
 	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
