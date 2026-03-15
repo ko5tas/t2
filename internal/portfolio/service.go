@@ -16,12 +16,16 @@ type Service struct {
 	mu          sync.RWMutex
 	instruments map[string]trading212.Instrument // keyed by ticker
 	exchanges   map[int]string                   // workingScheduleId -> exchange name
+
+	returnsMu sync.RWMutex
+	returns   map[string]tickerReturns // cached per-ticker returns
 }
 
 // NewService creates a new portfolio service and loads initial metadata.
 func NewService(client *trading212.Client) (*Service, error) {
 	s := &Service{
-		client: client,
+		client:  client,
+		returns: make(map[string]tickerReturns),
 	}
 	if err := s.refreshMetadata(); err != nil {
 		return nil, err
@@ -45,15 +49,31 @@ func (s *Service) StartMetadataRefresh() {
 	}()
 }
 
-// tickerReturns holds computed return data for a single ticker.
-type tickerReturns struct {
-	totalBuyCost     float64
-	totalSellProceeds float64
-	totalDividends   float64
+// StartReturnsRefresh launches a background goroutine that fetches
+// order and dividend history immediately, then refreshes periodically.
+func (s *Service) StartReturnsRefresh(interval time.Duration) {
+	go func() {
+		// Initial fetch after a short delay to let metadata settle.
+		time.Sleep(5 * time.Second)
+		s.refreshReturns()
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.refreshReturns()
+		}
+	}()
 }
 
-// fetchReturns fetches order and dividend history and computes per-ticker returns.
-func (s *Service) fetchReturns() map[string]tickerReturns {
+// tickerReturns holds computed return data for a single ticker.
+type tickerReturns struct {
+	totalBuyCost      float64
+	totalSellProceeds float64
+	totalDividends    float64
+}
+
+// refreshReturns fetches order and dividend history and updates the cache.
+func (s *Service) refreshReturns() {
 	returns := make(map[string]tickerReturns)
 
 	orders, err := s.client.GetOrderHistory()
@@ -87,18 +107,26 @@ func (s *Service) fetchReturns() map[string]tickerReturns {
 		log.Printf("loaded %d historical dividends", len(dividends))
 	}
 
-	return returns
+	s.returnsMu.Lock()
+	s.returns = returns
+	s.returnsMu.Unlock()
+}
+
+// cachedReturns returns the current cached returns map.
+func (s *Service) cachedReturns() map[string]tickerReturns {
+	s.returnsMu.RLock()
+	defer s.returnsMu.RUnlock()
+	return s.returns
 }
 
 // GetPosition fetches a single position by its raw ticker (e.g. "AAPL_US_EQ").
-// It calls the same bulk API but returns only the matching position.
 func (s *Service) GetPosition(rawTicker string) *Position {
 	positions, err := s.client.GetPositions()
 	if err != nil {
 		return nil
 	}
 
-	returns := s.fetchReturns()
+	returns := s.cachedReturns()
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -147,7 +175,7 @@ func (s *Service) GetSummary() *Summary {
 		}
 	}
 
-	returns := s.fetchReturns()
+	returns := s.cachedReturns()
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -157,10 +185,8 @@ func (s *Service) GetSummary() *Summary {
 	var totalReturn float64
 
 	for _, p := range positions {
-		// Use T212's own GBP value from walletImpact.currentValue.
 		marketValue := p.CurrentValueGBP
 
-		// Look up instrument metadata for display name and exchange.
 		displayTicker := p.Ticker
 		stockName := p.Name
 		exchange := "Unknown"
@@ -190,7 +216,6 @@ func (s *Service) GetSummary() *Summary {
 		totalReturn += ret
 	}
 
-	// Log cross-check against account cash.
 	go s.logCrossCheck(total)
 
 	return &Summary{
@@ -215,7 +240,6 @@ func (s *Service) refreshMetadata() error {
 		return err
 	}
 
-	// Build schedule ID -> exchange name map.
 	exchangeMap := make(map[int]string)
 	for _, ex := range exchanges {
 		for _, ws := range ex.WorkingSchedules {
@@ -223,7 +247,6 @@ func (s *Service) refreshMetadata() error {
 		}
 	}
 
-	// Wait before fetching instruments to respect rate limits.
 	time.Sleep(2 * time.Second)
 
 	instruments, err := s.client.GetInstruments()
@@ -231,7 +254,6 @@ func (s *Service) refreshMetadata() error {
 		return err
 	}
 
-	// Build ticker -> instrument map.
 	instrumentMap := make(map[string]trading212.Instrument, len(instruments))
 	for _, inst := range instruments {
 		instrumentMap[inst.Ticker] = inst
@@ -246,12 +268,10 @@ func (s *Service) refreshMetadata() error {
 	return nil
 }
 
-// tickerDisplay returns the display ticker (without the suffix like _US_EQ).
 func tickerDisplay(inst trading212.Instrument) string {
 	if inst.ShortName != "" {
 		return inst.ShortName
 	}
-	// Fallback: strip common suffixes.
 	ticker := inst.Ticker
 	for _, suffix := range []string{"_US_EQ", "_L_EQ", "_PA_EQ", "_CA_EQ"} {
 		ticker = strings.TrimSuffix(ticker, suffix)
