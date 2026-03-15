@@ -1,15 +1,15 @@
 Package: t2
-Version: 0.2.5
+Version: 0.3.0
 Architecture: arm64
 Maintainer: ko5tas <ko5tas@users.noreply.github.com>
 Installed-Size: 12436
 Depends: systemd
 Recommends: ca-certificates
-Filename: pool/main/t2_0.2.5_arm64.deb
-Size: 5983626
-MD5sum: 15ad6624f76f6fc06988a07ce7010184
-SHA1: e84c06a2d813fbbf38ca075d1a4699d35a40ba5f
-SHA256: 4a12fea4ab476f07192f43d26f90a3e4ae18c5c3db0c048629830ed1f7ab16f4
+Filename: pool/main/t2_0.3.0_arm64.deb
+Size: 5987688
+MD5sum: d669790678432358a6fabfbc0fbcc1dd
+SHA1: 17f5cfe6a391a94fe1c6468460dc810c8dd59286
+SHA256: 5d5d709d572e66e50675c936ba7d5e3b9374a334cc5d0ebd28c0c38cb7bfad49
 Section: misc
 Priority: optional
 Homepage: https://github.com/ko5tas/t2
