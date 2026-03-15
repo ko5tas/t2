@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/ko5tas/t2/internal/config"
 	"github.com/ko5tas/t2/internal/portfolio"
@@ -24,9 +25,11 @@ func main() {
 		log.Fatalf("portfolio service: %v", err)
 	}
 	svc.StartMetadataRefresh()
+	svc.StartSummaryRefresh(cfg.RefreshInterval)
 	svc.StartReturnsRefresh(cfg.RefreshInterval)
 
-	handler := web.NewHandler(svc, cfg.RefreshInterval)
+	// Page polls every 30s (cheap — reads from cache). API fetches happen on RefreshInterval.
+	handler := web.NewHandler(svc, 30*time.Second)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
