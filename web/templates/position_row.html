@@ -1,5 +1,8 @@
 <td class="num"></td>
 <td><span class="ticker">{{.Ticker}}</span><span class="stock-name">{{.StockName}}</span><span class="raw-ticker">{{.RawTicker}}</span></td>
+<td class="value" data-val="{{.Quantity}}">{{formatQty .Quantity}}</td>
 <td class="value" data-val="{{.MarketValue}}">{{formatGBP .MarketValue}}</td>
+<td class="value {{returnClass .Return}}" data-val="{{.Return}}">{{formatGBP .Return}}</td>
+<td class="value {{returnClass .ReturnPct}}" data-val="{{.ReturnPct}}">{{formatPct .ReturnPct}}</td>
 <td class="exchange">{{.Exchange}}</td>
 <td class="refresh-cell"><button class="refresh-btn" hx-get="/position/{{.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>

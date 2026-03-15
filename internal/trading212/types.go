@@ -58,6 +58,38 @@ type TimeEvent struct {
 	Type string `json:"type"`
 }
 
+// OrderHistoryResponse is the paginated response from /equity/history/orders.
+type OrderHistoryResponse struct {
+	Items        []OrderHistoryItem `json:"items"`
+	NextPagePath *string            `json:"nextPagePath"`
+}
+
+// OrderHistoryItem is a single filled order from history.
+type OrderHistoryItem struct {
+	Order struct {
+		Ticker string `json:"ticker"`
+		Side   string `json:"side"` // "BUY" or "SELL"
+	} `json:"order"`
+	Fill struct {
+		Quantity     float64 `json:"quantity"`
+		WalletImpact struct {
+			NetValue float64 `json:"netValue"` // in account currency (GBP)
+		} `json:"walletImpact"`
+	} `json:"fill"`
+}
+
+// DividendHistoryResponse is the paginated response from /equity/history/dividends.
+type DividendHistoryResponse struct {
+	Items        []DividendHistoryItem `json:"items"`
+	NextPagePath *string               `json:"nextPagePath"`
+}
+
+// DividendHistoryItem is a single dividend payout from history.
+type DividendHistoryItem struct {
+	Ticker string  `json:"ticker"`
+	Amount float64 `json:"amount"` // in account currency (GBP)
+}
+
 // AccountCash represents the account cash breakdown.
 type AccountCash struct {
 	Blocked  float64 `json:"blocked"`

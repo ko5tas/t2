@@ -21,6 +21,24 @@ var funcMap = template.FuncMap{
 		}
 		return fmt.Sprintf("£%s", formatNumber(v))
 	},
+	"formatQty": func(v float64) string {
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%.4f", v)
+	},
+	"formatPct": func(v float64) string {
+		return fmt.Sprintf("%.2f%%", v)
+	},
+	"returnClass": func(v float64) string {
+		if v > 0 {
+			return "positive"
+		}
+		if v < 0 {
+			return "negative"
+		}
+		return ""
+	},
 }
 
 func formatNumber(v float64) string {
