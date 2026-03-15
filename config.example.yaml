@@ -1,0 +1,13 @@
+# Trading212 API credentials (from Settings > API in the app)
+api_key: "your-api-key-here"
+api_secret: "your-api-secret-here"
+
+# How often to refresh positions (default: 15m)
+refresh_interval: "15m"
+
+# HTTP server listen address (default: :8080)
+listen: ":8080"
+
+# Trading212 API base URL (default: https://live.trading212.com/api/v0)
+# Use https://demo.trading212.com/api/v0 for testing with a demo account
+base_url: "https://live.trading212.com/api/v0"
