@@ -1,0 +1,36 @@
+{{if .Error}}
+<div class="error">{{.Error}}</div>
+{{end}}
+{{if and (not .Error) (eq (len .Positions) 0)}}
+<div class="empty">No open positions.</div>
+{{else if not .Error}}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th class="right">Market Value</th>
+            <th>Exchange</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range $i, $p := .Positions}}
+        <tr>
+            <td class="num">{{inc $i}}</td>
+            <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span></td>
+            <td class="value">{{formatGBP $p.MarketValue}}</td>
+            <td class="exchange">{{$p.Exchange}}</td>
+        </tr>
+        {{end}}
+        <tr class="total">
+            <td></td>
+            <td>Total</td>
+            <td class="value">{{formatGBP .TotalMarketValue}}</td>
+            <td></td>
+        </tr>
+    </tbody>
+</table>
+<div class="header">
+    <div class="updated">Last updated: {{.LastUpdated.Format "15:04:05 02 Jan 2006"}}</div>
+</div>
+{{end}}

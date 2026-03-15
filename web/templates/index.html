@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T2 - Trading212 Dashboard</title>
+    <script src="/static/htmx.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Menlo', 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #64b5f6;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header .updated {
+            color: #666;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        .controls {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        .controls button {
+            background: #2a2a4a;
+            color: #90caf9;
+            border: 1px solid #333;
+            padding: 6px 14px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .controls button:hover { background: #3a3a5a; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead tr {
+            border-bottom: 2px solid #333;
+        }
+        th {
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #90caf9;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        th.right { text-align: right; }
+        td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #222;
+        }
+        td.num { color: #666; }
+        td .ticker { color: #90caf9; font-weight: bold; }
+        td .stock-name { color: #888; margin-left: 6px; }
+        td.value {
+            text-align: right;
+            color: #81c784;
+            font-weight: bold;
+        }
+        td.exchange { color: #888; }
+        tr.total td {
+            border-top: 2px solid #333;
+            border-bottom: none;
+            padding-top: 10px;
+            font-weight: bold;
+        }
+        tr.total td.value { color: #64b5f6; }
+        .error {
+            background: #4a1a1a;
+            color: #ef9a9a;
+            padding: 10px 14px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border: 1px solid #5a2a2a;
+        }
+        .empty {
+            text-align: center;
+            color: #666;
+            padding: 40px 0;
+        }
+        .htmx-indicator {
+            display: none;
+            color: #666;
+            font-size: 11px;
+        }
+        .htmx-request .htmx-indicator { display: inline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>T2 - Trading212 Dashboard</h1>
+    </div>
+    <div class="controls">
+        <button hx-get="/positions" hx-target="#positions" hx-swap="innerHTML">
+            Refresh
+        </button>
+        <span class="htmx-indicator">Loading...</span>
+    </div>
+    <div id="positions"
+         hx-get="/positions"
+         hx-trigger="load, every {{.RefreshSeconds}}s"
+         hx-indicator=".htmx-indicator">
+    </div>
+</body>
+</html>
