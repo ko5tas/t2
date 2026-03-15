@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
   release:
     types: [published]
 
@@ -11,7 +14,21 @@ permissions:
   pages: write
 
 jobs:
+  create-release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" --title "$TAG" --generate-notes
+
   build:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     strategy:
       matrix:
