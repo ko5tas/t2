@@ -1,0 +1,18 @@
+Package: t2
+Version: 0.1.0
+Architecture: armhf
+Maintainer: ko5tas <ko5tas@users.noreply.github.com>
+Installed-Size: 12472
+Depends: systemd
+Recommends: ca-certificates
+Filename: pool/main/t2_0.1.0_armhf.deb
+Size: 6037050
+MD5sum: 1c4f0af1bcf63f5a9736c927a6fac27c
+SHA1: 447691214a29df068adb4f46d866696242a02f94
+SHA256: 9d5357d447aefa3db1ad5ca2020c9ca46be8cf9a39ef045d0c0c21e6d57ed259
+Section: misc
+Priority: optional
+Homepage: https://github.com/ko5tas/t2
+Description: Trading212 portfolio dashboard
+ Web dashboard for viewing Trading212 portfolio positions.
+
