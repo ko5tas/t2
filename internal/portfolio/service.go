@@ -81,6 +81,7 @@ func (s *Service) GetSummary() *Summary {
 
 		result = append(result, Position{
 			Ticker:      displayTicker,
+			RawTicker:   p.Ticker,
 			StockName:   stockName,
 			Exchange:    exchange,
 			MarketValue: marketValue,
