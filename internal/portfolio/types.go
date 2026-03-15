@@ -14,6 +14,7 @@ type Position struct {
 	ReturnPct      float64 // return as percentage of total buy cost
 	Invested       float64 // total buy cost in £
 	PerformancePct float64 // (marketValue + sells + dividends - invested) / invested * 100
+	Profitable     bool    // true when MarketValue > Invested + £1 (minimum sell threshold)
 }
 
 // Summary holds all positions plus aggregates.
@@ -24,5 +25,6 @@ type Summary struct {
 	TotalInvested       float64
 	TotalPerformancePct float64
 	LastUpdated         time.Time
+	AnyProfitable       bool
 	Error            string // non-empty if last fetch failed
 }

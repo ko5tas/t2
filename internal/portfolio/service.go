@@ -193,6 +193,7 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			ReturnPct:      retPct,
 			Invested:       invested,
 			PerformancePct: perfPct,
+			Profitable:     invested > 0 && p.CurrentValueGBP > invested+1,
 		}
 		return &pos
 	}
@@ -227,6 +228,7 @@ func (s *Service) refreshSummary() {
 	var total float64
 	var totalReturn float64
 	var totalInvested float64
+	var anyProfitable bool
 
 	for _, p := range positions {
 		marketValue := p.CurrentValueGBP
@@ -246,6 +248,11 @@ func (s *Service) refreshSummary() {
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
 		perfPct := computePerformance(marketValue, ret, invested)
+		profitable := invested > 0 && marketValue > invested+1
+
+		if profitable {
+			anyProfitable = true
+		}
 
 		result = append(result, Position{
 			Ticker:         displayTicker,
@@ -258,6 +265,7 @@ func (s *Service) refreshSummary() {
 			ReturnPct:      retPct,
 			Invested:       invested,
 			PerformancePct: perfPct,
+			Profitable:     profitable,
 		})
 		total += marketValue
 		totalReturn += ret
@@ -274,6 +282,7 @@ func (s *Service) refreshSummary() {
 		TotalReturn:         totalReturn,
 		TotalInvested:       totalInvested,
 		TotalPerformancePct: totalPerfPct,
+		AnyProfitable:       anyProfitable,
 		LastUpdated:         time.Now(),
 	}
 
