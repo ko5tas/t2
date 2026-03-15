@@ -22,15 +22,21 @@ type Service struct {
 }
 
 // NewService creates a new portfolio service and loads initial metadata.
+// It retries up to 5 times with 30s backoff if rate-limited on startup.
 func NewService(client *trading212.Client) (*Service, error) {
 	s := &Service{
 		client:  client,
 		returns: make(map[string]tickerReturns),
 	}
-	if err := s.refreshMetadata(); err != nil {
-		return nil, err
+	var err error
+	for attempt := 1; attempt <= 5; attempt++ {
+		if err = s.refreshMetadata(); err == nil {
+			return s, nil
+		}
+		log.Printf("metadata load failed (attempt %d/5): %v, retrying in 30s...", attempt, err)
+		time.Sleep(30 * time.Second)
 	}
-	return s, nil
+	return nil, err
 }
 
 // StartMetadataRefresh launches a background goroutine that refreshes
