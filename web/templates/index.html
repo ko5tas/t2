@@ -124,6 +124,14 @@
         td.perf-good { color: #fdd835 !important; }
         td.perf-positive { color: #4caf50 !important; }
         td.perf-legendary { color: #5bc0be !important; }
+        @keyframes profitable-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        td.profitable {
+            color: #4ade80 !important;
+            animation: profitable-blink 1s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
@@ -141,5 +149,22 @@
          hx-trigger="load"
          hx-indicator=".htmx-indicator">
     </div>
+    <script>
+    (function() {
+        var link = document.querySelector('link[rel="icon"]');
+        var orig = link.href;
+        var green = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#065f46"/><circle cx="16" cy="16" r="8" fill="#4ade80"/></svg>');
+        var timer = null;
+        var on = false;
+        document.body.addEventListener("htmx:afterSettle", function() {
+            var has = document.querySelectorAll("td.profitable").length > 0;
+            if (has && !timer) {
+                timer = setInterval(function() { link.href = (on = !on) ? green : orig; }, 1000);
+            } else if (!has && timer) {
+                clearInterval(timer); timer = null; on = false; link.href = orig;
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
