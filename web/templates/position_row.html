@@ -2,11 +2,16 @@
 <td><span class="ticker">{{.Ticker}}</span><span class="stock-name">{{.StockName}}</span><span class="raw-ticker">{{.RawTicker}}</span></td>
 <td class="value{{if .Profitable}} profitable{{end}}" data-val="{{.MarketValue}}">{{formatGBP .MarketValue}} <button class="refresh-btn" hx-get="/position/{{.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
 <td class="exchange">{{.Exchange}}</td>
-{{if gt .Invested 0.0}}<td class="value {{returnClass .Return}}" data-val="{{.Return}}">{{formatGBP .Return}}</td>
+{{if gt .Invested 0.0}}<td class="value {{returnClass .Return}}" data-val="{{.Return}}">{{formatGBP .Return}}{{if gt .TotalDividends 0.0}} ({{formatGBP .TotalDividends}} divs){{end}}</td>
+<td class="value" data-val="{{.DividendYieldPct}}">{{if gt .DividendYieldPct 0.0}}{{formatPct .DividendYieldPct}}{{else}}—{{end}}</td>
 <td class="value" data-val="{{.Invested}}">{{formatGBP .Invested}} bought</td>
 <td class="value {{returnClass .ReturnPct}}" data-val="{{.ReturnPct}}">{{formatPct .ReturnPct}}</td>
 <td class="value {{performanceClass .PerformancePct}}" data-val="{{.PerformancePct}}">{{formatPct .PerformancePct}}</td>{{else}}<td class="value">—</td>
 <td class="value">—</td>
 <td class="value">—</td>
+<td class="value">—</td>
 <td class="value">—</td>{{end}}
 <td class="value" data-val="{{.Quantity}}">{{formatQty .Quantity}}</td>
+<td class="value" data-val="{{.CurrentPriceGBP}}">{{formatPrice .CurrentPrice .Currency .CurrentPriceGBP}}</td>
+<td class="value">{{if .FirstBought}}{{.FirstBought}}{{else}}—{{end}}</td>
+<td class="value">{{if .ISIN}}{{.ISIN}}{{else}}—{{end}}</td>

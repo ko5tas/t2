@@ -44,6 +44,25 @@ var funcMap = template.FuncMap{
 		return nextDir(currentSort, currentDir, col)
 	},
 	"eq2": func(a, b string) bool { return a == b },
+	"formatPrice": func(price float64, currency string, priceGBP float64) string {
+		symbols := map[string]string{
+			"USD": "$", "EUR": "€", "CHF": "CHF ", "SEK": "SEK ",
+			"NOK": "NOK ", "DKK": "DKK ", "PLN": "PLN ", "CZK": "CZK ",
+			"HUF": "HUF ", "RON": "RON ",
+		}
+		switch currency {
+		case "GBP":
+			return fmt.Sprintf("£%.2f", price)
+		case "GBX":
+			return fmt.Sprintf("£%.2f", price/100)
+		default:
+			sym, ok := symbols[currency]
+			if !ok {
+				sym = currency + " "
+			}
+			return fmt.Sprintf("%s%.2f (£%.2f)", sym, price, priceGBP)
+		}
+	},
 	"performanceClass": func(v float64) string {
 		if v < 0 {
 			return "perf-negative"
@@ -172,11 +191,15 @@ var sortFields = map[string]func(p portfolio.Position) float64{
 	"recovered_pct":  func(p portfolio.Position) float64 { return p.ReturnPct },
 	"performance":    func(p portfolio.Position) float64 { return p.PerformancePct },
 	"qty":            func(p portfolio.Position) float64 { return p.Quantity },
+	"price":          func(p portfolio.Position) float64 { return p.CurrentPriceGBP },
+	"div_yield":      func(p portfolio.Position) float64 { return p.DividendYieldPct },
 }
 
 var sortStringFields = map[string]func(p portfolio.Position) string{
-	"name":     func(p portfolio.Position) string { return p.Ticker },
-	"exchange": func(p portfolio.Position) string { return p.Exchange },
+	"name":          func(p portfolio.Position) string { return p.Ticker },
+	"exchange":      func(p portfolio.Position) string { return p.Exchange },
+	"first_bought":  func(p portfolio.Position) string { return p.FirstBought },
+	"isin":          func(p portfolio.Position) string { return p.ISIN },
 }
 
 type positionsData struct {

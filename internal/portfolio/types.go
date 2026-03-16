@@ -14,6 +14,13 @@ type Position struct {
 	ReturnPct      float64 // return as percentage of total buy cost
 	Invested       float64 // total buy cost in £
 	PerformancePct float64 // (marketValue + sells + dividends - invested) / invested * 100
+	CurrentPrice    float64 // price in native currency
+	Currency        string  // native currency code (USD, GBX, EUR, GBP)
+	CurrentPriceGBP float64 // price per share in £
+	TotalDividends   float64 // total dividend income in £
+	DividendYieldPct float64 // totalDividends / marketValue * 100
+	FirstBought     string  // date of first buy order (e.g. "2025-01-15")
+	ISIN            string  // instrument ISIN
 	Profitable     bool    // true when MarketValue > Invested + £1 (minimum sell threshold)
 }
 

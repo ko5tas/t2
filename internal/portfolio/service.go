@@ -98,6 +98,7 @@ type tickerReturns struct {
 	totalBuyCost      float64
 	totalSellProceeds float64
 	totalDividends    float64
+	firstBought       string // earliest BUY fill date (e.g. "2025-01-15")
 }
 
 // fxRateEntry holds a date and rate pair for FX lookups.
@@ -221,6 +222,13 @@ func (s *Service) refreshReturns() {
 			switch item.Order.Side {
 			case "BUY":
 				tr.totalBuyCost += netGBP
+				fillDate := item.Fill.FilledAt
+				if len(fillDate) >= 10 {
+					fillDate = fillDate[:10]
+				}
+				if tr.firstBought == "" || fillDate < tr.firstBought {
+					tr.firstBought = fillDate
+				}
 			case "SELL":
 				tr.totalSellProceeds += netGBP
 			}
@@ -287,18 +295,41 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
 		perfPct := computePerformance(p.CurrentValueGBP, ret, invested)
 
+		currency := ""
+		isin := ""
+		if inst, ok := s.instruments[p.Ticker]; ok {
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
+		}
+		var priceGBP float64
+		if p.Quantity > 0 {
+			priceGBP = p.CurrentValueGBP / p.Quantity
+		}
+		tr := returns[p.Ticker]
+		var divYield float64
+		if p.CurrentValueGBP > 0 && tr.totalDividends > 0 {
+			divYield = tr.totalDividends / p.CurrentValueGBP * 100
+		}
+
 		pos := Position{
-			Ticker:         displayTicker,
-			RawTicker:      p.Ticker,
-			StockName:      stockName,
-			Exchange:       exchange,
-			MarketValue:    p.CurrentValueGBP,
-			Quantity:       p.Quantity,
-			Return:         ret,
-			ReturnPct:      retPct,
-			Invested:       invested,
-			PerformancePct: perfPct,
-			Profitable:     invested > 0 && p.CurrentValueGBP > invested+1,
+			Ticker:           displayTicker,
+			RawTicker:        p.Ticker,
+			StockName:        stockName,
+			Exchange:         exchange,
+			MarketValue:      p.CurrentValueGBP,
+			Quantity:         p.Quantity,
+			CurrentPrice:     p.CurrentPrice,
+			Currency:         currency,
+			CurrentPriceGBP:  priceGBP,
+			TotalDividends:   tr.totalDividends,
+			DividendYieldPct: divYield,
+			FirstBought:      tr.firstBought,
+			ISIN:             isin,
+			Return:           ret,
+			ReturnPct:        retPct,
+			Invested:         invested,
+			PerformancePct:   perfPct,
+			Profitable:       invested > 0 && p.CurrentValueGBP > invested+1,
 		}
 		s.updateSummaryPosition(&pos)
 		return &pos
@@ -400,18 +431,42 @@ func (s *Service) refreshSummary() {
 			anyProfitable = true
 		}
 
+		currency := ""
+		isin := ""
+		if inst, ok := s.instruments[p.Ticker]; ok {
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
+		}
+		var priceGBP float64
+		if p.Quantity > 0 {
+			priceGBP = marketValue / p.Quantity
+		}
+
+		var divYield float64
+		tr := returns[p.Ticker]
+		if marketValue > 0 && tr.totalDividends > 0 {
+			divYield = tr.totalDividends / marketValue * 100
+		}
+
 		result = append(result, Position{
-			Ticker:         displayTicker,
-			RawTicker:      p.Ticker,
-			StockName:      stockName,
-			Exchange:       exchange,
-			MarketValue:    marketValue,
-			Quantity:       p.Quantity,
-			Return:         ret,
-			ReturnPct:      retPct,
-			Invested:       invested,
-			PerformancePct: perfPct,
-			Profitable:     profitable,
+			Ticker:           displayTicker,
+			RawTicker:        p.Ticker,
+			StockName:        stockName,
+			Exchange:         exchange,
+			MarketValue:      marketValue,
+			Quantity:         p.Quantity,
+			CurrentPrice:     p.CurrentPrice,
+			Currency:         currency,
+			CurrentPriceGBP:  priceGBP,
+			TotalDividends:   tr.totalDividends,
+			DividendYieldPct: divYield,
+			FirstBought:      tr.firstBought,
+			ISIN:             isin,
+			Return:           ret,
+			ReturnPct:        retPct,
+			Invested:         invested,
+			PerformancePct:   perfPct,
+			Profitable:       profitable,
 		})
 		total += marketValue
 		totalReturn += ret
