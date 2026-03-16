@@ -67,14 +67,21 @@ type OrderHistoryResponse struct {
 // OrderHistoryItem is a single filled order from history.
 type OrderHistoryItem struct {
 	Order struct {
-		Ticker string `json:"ticker"`
-		Side   string `json:"side"` // "BUY" or "SELL"
+		Ticker     string `json:"ticker"`
+		Side       string `json:"side"`     // "BUY" or "SELL"
+		Currency   string `json:"currency"` // order currency (GBP, USD, EUR)
+		Instrument struct {
+			Currency string `json:"currency"` // instrument currency (USD, GBX, EUR)
+		} `json:"instrument"`
 	} `json:"order"`
 	Fill struct {
-		Quantity     float64 `json:"quantity"`
-		Type         string  `json:"type"` // e.g. "MARKET", "STOCK_SPLIT"
+		Quantity float64 `json:"quantity"`
+		Type     string  `json:"type"`     // e.g. "MARKET", "STOCK_SPLIT"
+		FilledAt string  `json:"filledAt"` // e.g. "2025-09-17T14:30:00.000Z"
 		WalletImpact struct {
-			NetValue float64 `json:"netValue"` // in account currency (GBP)
+			Currency string  `json:"currency"` // actual currency of netValue
+			NetValue float64 `json:"netValue"`
+			FxRate   float64 `json:"fxRate"`   // conversion rate (1 = same currency, ~1.34 = GBP/USD)
 		} `json:"walletImpact"`
 	} `json:"fill"`
 }

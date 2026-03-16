@@ -2,6 +2,7 @@ package portfolio
 
 import (
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -99,6 +100,104 @@ type tickerReturns struct {
 	totalDividends    float64
 }
 
+// fxRateEntry holds a date and rate pair for FX lookups.
+type fxRateEntry struct {
+	date string  // "2025-09-17"
+	rate float64 // e.g. 1.3662 (GBP/foreign)
+}
+
+// buildFxRateLookup scans GBP-denominated orders on foreign-currency instruments
+// to extract historical FX rates. Returns a map of currency -> sorted rate entries.
+func buildFxRateLookup(orders []trading212.OrderHistoryItem) map[string][]fxRateEntry {
+	rates := make(map[string][]fxRateEntry)
+	seen := make(map[string]bool) // dedupe by currency+date
+
+	for _, item := range orders {
+		wi := item.Fill.WalletImpact
+		// We want GBP wallet orders with a meaningful fxRate (> 1).
+		if wi.Currency != "GBP" || wi.FxRate <= 1 {
+			continue
+		}
+		// The instrument currency tells us what foreign currency this rate converts from.
+		instCcy := item.Order.Instrument.Currency
+		if instCcy == "" || instCcy == "GBP" || instCcy == "GBX" {
+			continue
+		}
+		date := ""
+		if len(item.Fill.FilledAt) >= 10 {
+			date = item.Fill.FilledAt[:10]
+		}
+		if date == "" {
+			continue
+		}
+		key := instCcy + date
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		rates[instCcy] = append(rates[instCcy], fxRateEntry{date: date, rate: wi.FxRate})
+	}
+
+	// Sort each currency's entries by date for binary search.
+	for ccy := range rates {
+		sort.Slice(rates[ccy], func(i, j int) bool {
+			return rates[ccy][i].date < rates[ccy][j].date
+		})
+	}
+	return rates
+}
+
+// nearestRate finds the closest FX rate by date for a given currency.
+func nearestRate(rates map[string][]fxRateEntry, currency, date string) (float64, bool) {
+	entries := rates[currency]
+	if len(entries) == 0 {
+		return 0, false
+	}
+	// Binary search for the nearest date.
+	idx := sort.Search(len(entries), func(i int) bool {
+		return entries[i].date >= date
+	})
+	// Check the entry at idx and idx-1, pick the closest.
+	best := -1
+	if idx < len(entries) {
+		best = idx
+	}
+	if idx > 0 {
+		if best == -1 {
+			best = idx - 1
+		} else {
+			// Both candidates exist; no need for precise distance — just pick nearest.
+			// Dates are strings, so simple comparison works for "closeness" heuristic.
+			if date < entries[best].date && idx-1 >= 0 {
+				best = idx - 1 // prefer the earlier date if we're between two
+			}
+		}
+	}
+	if best == -1 {
+		return 0, false
+	}
+	return entries[best].rate, true
+}
+
+// toGBP converts an order's netValue to GBP using the FX rate lookup.
+func toGBP(item trading212.OrderHistoryItem, rates map[string][]fxRateEntry) float64 {
+	wi := item.Fill.WalletImpact
+	if wi.Currency == "GBP" || wi.Currency == "" {
+		return wi.NetValue
+	}
+	// Try to find a historical rate for this currency.
+	date := ""
+	if len(item.Fill.FilledAt) >= 10 {
+		date = item.Fill.FilledAt[:10]
+	}
+	if rate, ok := nearestRate(rates, wi.Currency, date); ok {
+		return wi.NetValue / rate
+	}
+	log.Printf("WARNING: no FX rate found for %s on %s, using netValue as-is (%.2f %s treated as GBP)",
+		wi.Currency, date, wi.NetValue, wi.Currency)
+	return wi.NetValue
+}
+
 // refreshReturns fetches order and dividend history and updates the cache.
 func (s *Service) refreshReturns() {
 	returns := make(map[string]tickerReturns)
@@ -107,17 +206,23 @@ func (s *Service) refreshReturns() {
 	if err != nil {
 		log.Printf("order history fetch failed: %v", err)
 	} else {
+		fxRates := buildFxRateLookup(orders)
 		for _, item := range orders {
 			// Skip stock splits — they are zero-sum internal rebookings.
 			if item.Fill.Type == "STOCK_SPLIT" {
 				continue
 			}
+			// Skip unfilled orders (safety net).
+			if item.Fill.WalletImpact.Currency == "" {
+				continue
+			}
+			netGBP := toGBP(item, fxRates)
 			tr := returns[item.Order.Ticker]
 			switch item.Order.Side {
 			case "BUY":
-				tr.totalBuyCost += item.Fill.WalletImpact.NetValue
+				tr.totalBuyCost += netGBP
 			case "SELL":
-				tr.totalSellProceeds += item.Fill.WalletImpact.NetValue
+				tr.totalSellProceeds += netGBP
 			}
 			returns[item.Order.Ticker] = tr
 		}
