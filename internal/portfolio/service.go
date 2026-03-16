@@ -300,9 +300,50 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			PerformancePct: perfPct,
 			Profitable:     invested > 0 && p.CurrentValueGBP > invested+1,
 		}
+		s.updateSummaryPosition(&pos)
 		return &pos
 	}
 	return nil
+}
+
+// updateSummaryPosition patches the cached summary with a freshly fetched position
+// so that the next HTMX poll does not overwrite it with stale data.
+func (s *Service) updateSummaryPosition(pos *Position) {
+	s.summaryMu.Lock()
+	defer s.summaryMu.Unlock()
+
+	if s.summary == nil {
+		return
+	}
+
+	found := false
+	for i := range s.summary.Positions {
+		if s.summary.Positions[i].RawTicker == pos.RawTicker {
+			s.summary.Positions[i] = *pos
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+
+	var total, totalReturn, totalInvested float64
+	anyProfitable := false
+	for _, p := range s.summary.Positions {
+		total += p.MarketValue
+		totalReturn += p.Return
+		totalInvested += p.Invested
+		if p.Profitable {
+			anyProfitable = true
+		}
+	}
+
+	s.summary.TotalMarketValue = total
+	s.summary.TotalReturn = totalReturn
+	s.summary.TotalInvested = totalInvested
+	s.summary.TotalPerformancePct = computePerformance(total, totalReturn, totalInvested)
+	s.summary.AnyProfitable = anyProfitable
 }
 
 // GetSummary returns the cached portfolio summary.
