@@ -20,6 +20,9 @@
             <th class="sortable{{if eq2 .Sort "recovered"}} sorted {{.Dir}}{{end}}"
                 hx-get="/positions?sort=recovered&dir={{nextDir .Sort .Dir "recovered"}}"
                 hx-target="#positions" hx-swap="innerHTML">Recovered (Sells+Dividends)</th>
+            <th class="sortable{{if eq2 .Sort "div_yield"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=div_yield&dir={{nextDir .Sort .Dir "div_yield"}}"
+                hx-target="#positions" hx-swap="innerHTML">Div Yield %</th>
             <th class="sortable{{if eq2 .Sort "invested"}} sorted {{.Dir}}{{end}}"
                 hx-get="/positions?sort=invested&dir={{nextDir .Sort .Dir "invested"}}"
                 hx-target="#positions" hx-swap="innerHTML">Invested</th>
@@ -32,6 +35,15 @@
             <th class="sortable{{if eq2 .Sort "qty"}} sorted {{.Dir}}{{end}}"
                 hx-get="/positions?sort=qty&dir={{nextDir .Sort .Dir "qty"}}"
                 hx-target="#positions" hx-swap="innerHTML">Qty</th>
+            <th class="sortable{{if eq2 .Sort "price"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=price&dir={{nextDir .Sort .Dir "price"}}"
+                hx-target="#positions" hx-swap="innerHTML">Price</th>
+            <th class="sortable{{if eq2 .Sort "first_bought"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=first_bought&dir={{nextDir .Sort .Dir "first_bought"}}"
+                hx-target="#positions" hx-swap="innerHTML">First Bought</th>
+            <th class="sortable{{if eq2 .Sort "isin"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=isin&dir={{nextDir .Sort .Dir "isin"}}"
+                hx-target="#positions" hx-swap="innerHTML">ISIN</th>
         </tr>
     </thead>
     <tbody>
@@ -41,14 +53,19 @@
             <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span></td>
             <td class="value{{if $p.Profitable}} profitable{{end}}" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}} <button class="refresh-btn" hx-get="/position/{{$p.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
             <td class="exchange">{{$p.Exchange}}</td>
-            {{if gt $p.Invested 0.0}}<td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}</td>
+            {{if gt $p.Invested 0.0}}<td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}{{if gt $p.TotalDividends 0.0}} ({{formatGBP $p.TotalDividends}} divs){{end}}</td>
+            <td class="value" data-val="{{$p.DividendYieldPct}}">{{if gt $p.DividendYieldPct 0.0}}{{formatPct $p.DividendYieldPct}}{{else}}—{{end}}</td>
             <td class="value" data-val="{{$p.Invested}}">{{formatGBP $p.Invested}} bought</td>
             <td class="value {{returnClass $p.ReturnPct}}" data-val="{{$p.ReturnPct}}">{{formatPct $p.ReturnPct}}</td>
             <td class="value {{performanceClass $p.PerformancePct}}" data-val="{{$p.PerformancePct}}">{{formatPct $p.PerformancePct}}</td>{{else}}<td class="value">—</td>
             <td class="value">—</td>
             <td class="value">—</td>
+            <td class="value">—</td>
             <td class="value">—</td>{{end}}
             <td class="value" data-val="{{$p.Quantity}}">{{formatQty $p.Quantity}}</td>
+            <td class="value" data-val="{{$p.CurrentPriceGBP}}">{{formatPrice $p.CurrentPrice $p.Currency $p.CurrentPriceGBP}}</td>
+            <td class="value">{{if $p.FirstBought}}{{$p.FirstBought}}{{else}}—{{end}}</td>
+            <td class="value">{{if $p.ISIN}}{{$p.ISIN}}{{else}}—{{end}}</td>
         </tr>
         {{end}}
         <tr class="total">
@@ -57,12 +74,17 @@
             <td class="value">{{formatGBP .TotalMarketValue}}</td>
             <td></td>
             {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
+            <td></td>
             <td class="value">{{formatGBP .TotalInvested}} bought</td>
             <td></td>
             <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td></td>
             <td class="value">—</td>
             <td></td>
             <td class="value">—</td>{{end}}
+            <td></td>
+            <td></td>
+            <td></td>
             <td></td>
         </tr>
     </tbody>
