@@ -44,19 +44,19 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Extract version
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
           CGO_ENABLED: "0"
-        run: go build -o t2-${{ matrix.deb_arch }} ./cmd/t2
-
-      - name: Extract version
-        id: version
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+        run: go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o t2-${{ matrix.deb_arch }} ./cmd/t2
 
       - name: Build deb package
         run: |

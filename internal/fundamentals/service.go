@@ -59,7 +59,13 @@ func (s *Service) RefreshAll(positions []PositionInfo) {
 		log.Println("fundamentals: yahoo auth successful")
 	}
 
-	data := make(map[string]Fundamentals)
+	// Start from existing cache so failed fetches don't lose previous data.
+	s.mu.RLock()
+	data := make(map[string]Fundamentals, len(s.data))
+	for k, v := range s.data {
+		data[k] = v
+	}
+	s.mu.RUnlock()
 
 	for _, p := range positions {
 		var f *Fundamentals
