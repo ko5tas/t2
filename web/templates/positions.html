@@ -64,7 +64,7 @@
     <tbody>
         {{range $i, $p := .Positions}}
         <tr>
-            <td class="num">{{inc $i}}</td>
+            <td class="num"></td>
             <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span>{{if $p.ISIN}}<span class="isin">{{$p.ISIN}}</span>{{end}}</td>
             <td class="value{{if $p.Profitable}} profitable{{end}}" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}} <button class="refresh-btn" hx-get="/position/{{$p.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
             <td class="exchange">{{$p.Exchange}}</td>
