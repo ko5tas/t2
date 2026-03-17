@@ -41,16 +41,31 @@
             <th class="sortable{{if eq2 .Sort "first_bought"}} sorted {{.Dir}}{{end}}"
                 hx-get="/positions?sort=first_bought&dir={{nextDir .Sort .Dir "first_bought"}}"
                 hx-target="#positions" hx-swap="innerHTML">First Bought</th>
-            <th class="sortable{{if eq2 .Sort "isin"}} sorted {{.Dir}}{{end}}"
-                hx-get="/positions?sort=isin&dir={{nextDir .Sort .Dir "isin"}}"
-                hx-target="#positions" hx-swap="innerHTML">ISIN</th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "pe"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=pe&dir={{nextDir .Sort .Dir "pe"}}"
+                hx-target="#positions" hx-swap="innerHTML">P/E<span class="tooltip">Price ÷ Earnings Per Share. Lower may indicate undervaluation. Meaningless for loss-making companies.</span></th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "eps"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=eps&dir={{nextDir .Sort .Dir "eps"}}"
+                hx-target="#positions" hx-swap="innerHTML">EPS<span class="tooltip">Earnings Per Share: company profit ÷ total shares. Rising EPS = growing profitability.</span></th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "eps_growth"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=eps_growth&dir={{nextDir .Sort .Dir "eps_growth"}}"
+                hx-target="#positions" hx-swap="innerHTML">EPS Growth<span class="tooltip">Year-over-year change in EPS. Shows whether profitability is improving or declining.</span></th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "market_cap"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=market_cap&dir={{nextDir .Sort .Dir "market_cap"}}"
+                hx-target="#positions" hx-swap="innerHTML">Mkt Cap<span class="tooltip">Total market value of the company (price × shares outstanding).</span></th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "revenue"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=revenue&dir={{nextDir .Sort .Dir "revenue"}}"
+                hx-target="#positions" hx-swap="innerHTML">Revenue<span class="tooltip">Total sales income over the last 12 months, before any expenses.</span></th>
+            <th class="sortable has-tooltip{{if eq2 .Sort "profit_margin"}} sorted {{.Dir}}{{end}}"
+                hx-get="/positions?sort=profit_margin&dir={{nextDir .Sort .Dir "profit_margin"}}"
+                hx-target="#positions" hx-swap="innerHTML">Margin %<span class="tooltip">Net income as % of revenue. Higher = more efficient business model.</span></th>
         </tr>
     </thead>
     <tbody>
         {{range $i, $p := .Positions}}
         <tr>
             <td class="num">{{inc $i}}</td>
-            <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span></td>
+            <td><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span>{{if $p.ISIN}}<span class="isin">{{$p.ISIN}}</span>{{end}}</td>
             <td class="value{{if $p.Profitable}} profitable{{end}}" data-val="{{$p.MarketValue}}">{{formatGBP $p.MarketValue}} <button class="refresh-btn" hx-get="/position/{{$p.RawTicker}}" hx-target="closest tr" hx-swap="innerHTML" title="Refresh">&#x21bb;</button></td>
             <td class="exchange">{{$p.Exchange}}</td>
             {{if gt $p.Invested 0.0}}<td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}{{if gt $p.TotalDividends 0.0}} ({{formatGBP $p.TotalDividends}} divs){{end}}</td>
@@ -65,7 +80,12 @@
             <td class="value" data-val="{{$p.Quantity}}">{{formatQty $p.Quantity}}</td>
             <td class="value" data-val="{{$p.CurrentPriceGBP}}">{{formatPrice $p.CurrentPrice $p.Currency $p.CurrentPriceGBP}}</td>
             <td class="value">{{if $p.FirstBought}}{{$p.FirstBought}}{{else}}—{{end}}</td>
-            <td class="value">{{if $p.ISIN}}{{$p.ISIN}}{{else}}—{{end}}</td>
+            <td class="value">{{formatFund $p.PERatio $p.FundsFetched}}</td>
+            <td class="value">{{formatFund $p.EPS $p.FundsFetched}}</td>
+            <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched}}</td>
+            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched}}</td>
+            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched}}</td>
+            <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched}}</td>
         </tr>
         {{end}}
         <tr class="total">
@@ -82,6 +102,11 @@
             <td class="value">—</td>
             <td></td>
             <td class="value">—</td>{{end}}
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>

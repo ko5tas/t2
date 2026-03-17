@@ -16,6 +16,7 @@ type Config struct {
 	RefreshInterval time.Duration `yaml:"refresh_interval"`
 	Listen          string        `yaml:"listen"`
 	BaseURL         string        `yaml:"base_url"`
+	FinnhubAPIKey   string        `yaml:"finnhub_api_key"`
 }
 
 // rawConfig is used for YAML unmarshaling since time.Duration
@@ -26,6 +27,7 @@ type rawConfig struct {
 	RefreshInterval string `yaml:"refresh_interval"`
 	Listen          string `yaml:"listen"`
 	BaseURL         string `yaml:"base_url"`
+	FinnhubAPIKey   string `yaml:"finnhub_api_key"`
 }
 
 // Load reads the configuration file and returns a validated Config.
@@ -47,10 +49,11 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		APIKey:    raw.APIKey,
-		APISecret: raw.APISecret,
-		Listen:    raw.Listen,
-		BaseURL:   raw.BaseURL,
+		APIKey:        raw.APIKey,
+		APISecret:     raw.APISecret,
+		Listen:        raw.Listen,
+		BaseURL:       raw.BaseURL,
+		FinnhubAPIKey: raw.FinnhubAPIKey,
 	}
 
 	// Parse refresh interval with default.
