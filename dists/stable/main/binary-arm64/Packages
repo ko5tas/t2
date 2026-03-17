@@ -6,10 +6,10 @@ Installed-Size: 12608
 Depends: systemd
 Recommends: ca-certificates
 Filename: pool/main/t2_0.6.1_arm64.deb
-Size: 6050742
-MD5sum: 487fd3007fa83435ecb701f1f9c9d00b
-SHA1: 790b7df365b77568da5dead835e5d18155ae4c23
-SHA256: 3c88d2c74e9a263c0019e87a107eecaa2ae52eeef943c82fe41457985b85d994
+Size: 6052418
+MD5sum: a0cbe282ddeede629bfddc5826a4d850
+SHA1: 7bc0bbe4f7d40d9ee7f40c030191919ce2e7ad10
+SHA256: 4fb54182550e8700073cf4e93a37928dcdbce35820d1bddefef9865bb75f295e
 Section: misc
 Priority: optional
 Homepage: https://github.com/ko5tas/t2

@@ -6,10 +6,10 @@ Installed-Size: 12652
 Depends: systemd
 Recommends: ca-certificates
 Filename: pool/main/t2_0.6.1_armhf.deb
-Size: 6113758
-MD5sum: 04cef93d3686bfffe69e5c2afd2d5bd8
-SHA1: 5c848d65e4ec6c6eef6ffd0c8867f403b3f155cc
-SHA256: 32e4a4b308b2bc0ea5a6d8097ddadf1288b00c082c40c2f9439180915400242b
+Size: 6116180
+MD5sum: 48a4f04fd41ec14492fc268dd3b0c3ec
+SHA1: 79e67a519440613c1def6443e2764a921c3440c0
+SHA256: 3301d0762126bb411bd6945fe19a384c5ae762308040a656794fea7988fdc51d
 Section: misc
 Priority: optional
 Homepage: https://github.com/ko5tas/t2
