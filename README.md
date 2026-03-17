@@ -90,7 +90,7 @@ The config file is searched in order:
 | `base_url` | `https://live.trading212.com/api/v0` | API base URL |
 | `refresh_interval` | `15m` | How often to refresh positions |
 | `listen` | `:8080` | HTTP server listen address |
-| `finnhub_api_key` | (optional) | Finnhub API key for US stock fundamentals |
+| `finnhub_api_key` | (optional) | [Finnhub](https://finnhub.io) API key for US stock fundamentals (free tier) |
 
 ## License
 
