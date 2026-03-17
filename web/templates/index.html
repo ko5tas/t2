@@ -74,6 +74,7 @@
         td .ticker { color: #60a5fa; font-weight: bold; }
         td .stock-name { color: #ffffff; margin-left: 6px; }
         td .raw-ticker { color: #777; margin-left: 6px; font-size: 11px; }
+        td .isin { color: #555; margin-left: 6px; font-size: 10px; }
         td.value {
             text-align: left;
             color: #ffffff;
@@ -132,6 +133,24 @@
             color: #4ade80 !important;
             animation: profitable-blink 1s ease-in-out infinite;
         }
+        .has-tooltip { position: relative; cursor: help; }
+        .has-tooltip .tooltip {
+            display: none;
+            position: fixed;
+            padding: 8px 12px;
+            background: #2a2f38;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: normal;
+            text-transform: none;
+            white-space: normal;
+            max-width: 300px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .has-tooltip:hover .tooltip { display: block; }
     </style>
 </head>
 <body>
@@ -149,7 +168,31 @@
          hx-trigger="load"
          hx-indicator=".htmx-indicator">
     </div>
+    <div style="text-align:center;color:#4b5563;font-size:10px;margin-top:20px;">t2 {{.Version}}</div>
     <script>
+    (function() {
+        document.addEventListener('mouseover', function(e) {
+            var th = e.target.closest('.has-tooltip');
+            if (!th) return;
+            var tip = th.querySelector('.tooltip');
+            if (!tip) return;
+            // Briefly show offscreen to measure
+            tip.style.visibility = 'hidden';
+            tip.style.display = 'block';
+            var rect = th.getBoundingClientRect();
+            var tipH = tip.offsetHeight, tipW = tip.offsetWidth;
+            tip.style.display = '';
+            tip.style.visibility = '';
+            // Position above header; if clipped at top, show below
+            var top = rect.top - tipH - 6;
+            if (top < 5) top = rect.bottom + 6;
+            tip.style.top = top + 'px';
+            var left = rect.left + rect.width / 2 - tipW / 2;
+            if (left + tipW > window.innerWidth - 10) left = window.innerWidth - tipW - 10;
+            if (left < 10) left = 10;
+            tip.style.left = left + 'px';
+        });
+    })();
     (function() {
         var link = document.querySelector('link[rel="icon"]');
         var orig = link.href;

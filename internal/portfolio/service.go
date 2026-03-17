@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ko5tas/t2/internal/fundamentals"
 	"github.com/ko5tas/t2/internal/trading212"
 )
 
 // Service provides portfolio data by combining Trading212 API responses.
 type Service struct {
-	client *trading212.Client
+	client  *trading212.Client
+	fundsSvc *fundamentals.Service
 
 	mu          sync.RWMutex
 	instruments map[string]trading212.Instrument // keyed by ticker
@@ -27,10 +29,11 @@ type Service struct {
 
 // NewService creates a new portfolio service and loads initial metadata.
 // It retries up to 5 times with 30s backoff if rate-limited on startup.
-func NewService(client *trading212.Client) (*Service, error) {
+func NewService(client *trading212.Client, fundsSvc *fundamentals.Service) (*Service, error) {
 	s := &Service{
-		client:  client,
-		returns: make(map[string]tickerReturns),
+		client:   client,
+		fundsSvc: fundsSvc,
+		returns:  make(map[string]tickerReturns),
 	}
 	var err error
 	for attempt := 1; attempt <= 5; attempt++ {
@@ -331,6 +334,7 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			PerformancePct:   perfPct,
 			Profitable:       invested > 0 && p.CurrentValueGBP > invested+1,
 		}
+		s.enrichWithFundamentals(&pos)
 		s.updateSummaryPosition(&pos)
 		return &pos
 	}
@@ -448,7 +452,7 @@ func (s *Service) refreshSummary() {
 			divYield = tr.totalDividends / marketValue * 100
 		}
 
-		result = append(result, Position{
+		pos := Position{
 			Ticker:           displayTicker,
 			RawTicker:        p.Ticker,
 			StockName:        stockName,
@@ -467,7 +471,9 @@ func (s *Service) refreshSummary() {
 			Invested:         invested,
 			PerformancePct:   perfPct,
 			Profitable:       profitable,
-		})
+		}
+		s.enrichWithFundamentals(&pos)
+		result = append(result, pos)
 		total += marketValue
 		totalReturn += ret
 		totalInvested += invested
@@ -551,6 +557,66 @@ func tickerDisplay(inst trading212.Instrument) string {
 		ticker = strings.TrimSuffix(ticker, suffix)
 	}
 	return ticker
+}
+
+// PositionTickers returns display ticker + exchange pairs for all known instruments
+// that have open positions. Used by the fundamentals service to know which tickers to fetch.
+func (s *Service) PositionTickers() []fundamentals.PositionInfo {
+	s.summaryMu.RLock()
+	defer s.summaryMu.RUnlock()
+	if s.summary == nil {
+		return nil
+	}
+	infos := make([]fundamentals.PositionInfo, len(s.summary.Positions))
+	for i, p := range s.summary.Positions {
+		infos[i] = fundamentals.PositionInfo{
+			DisplayTicker: p.Ticker,
+			Exchange:      p.Exchange,
+		}
+	}
+	return infos
+}
+
+// StartFundamentalsRefresh launches a background goroutine that fetches
+// company fundamentals after startup, then refreshes once every 24 hours.
+func (s *Service) StartFundamentalsRefresh() {
+	if s.fundsSvc == nil {
+		return
+	}
+	go func() {
+		// Wait for metadata and initial summary to be available.
+		time.Sleep(15 * time.Second)
+		tickers := s.PositionTickers()
+		if len(tickers) > 0 && s.fundsSvc.NeedsRefresh() {
+			s.fundsSvc.RefreshAll(tickers)
+			s.refreshSummary() // rebuild summary with fundamentals data
+		}
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			tickers := s.PositionTickers()
+			if len(tickers) > 0 {
+				s.fundsSvc.RefreshAll(tickers)
+				s.refreshSummary()
+			}
+		}
+	}()
+}
+
+// enrichWithFundamentals populates the 6 fundamental fields on a Position.
+func (s *Service) enrichWithFundamentals(pos *Position) {
+	if s.fundsSvc == nil {
+		return
+	}
+	f := s.fundsSvc.Get(pos.Ticker)
+	pos.FundsFetched = f.Fetched
+	pos.PERatio = f.PERatio
+	pos.MarketCapM = f.MarketCap
+	pos.EPS = f.EPS
+	pos.EPSGrowthPct = f.EPSGrowthPct
+	pos.RevenueM = f.Revenue
+	pos.ProfitMarginPct = f.ProfitMarginPct
 }
 
 func (s *Service) logCrossCheck(calculatedTotal float64) {

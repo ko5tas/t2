@@ -63,6 +63,41 @@ var funcMap = template.FuncMap{
 			return fmt.Sprintf("%s%.2f (£%.2f)", sym, price, priceGBP)
 		}
 	},
+	"formatBigNum": func(v *float64, fetched bool) string {
+		if v == nil {
+			return "—"
+		}
+		n := *v
+		neg := ""
+		if n < 0 {
+			neg = "-"
+			n = -n
+		}
+		switch {
+		case n >= 1e12:
+			return fmt.Sprintf("%s$%.1fT", neg, n/1e12)
+		case n >= 1e9:
+			return fmt.Sprintf("%s$%.1fB", neg, n/1e9)
+		case n >= 1e6:
+			return fmt.Sprintf("%s$%.1fM", neg, n/1e6)
+		case n >= 1e3:
+			return fmt.Sprintf("%s$%.1fK", neg, n/1e3)
+		default:
+			return fmt.Sprintf("%s$%.0f", neg, n)
+		}
+	},
+	"formatFund": func(v *float64, fetched bool) string {
+		if v == nil {
+			return "—"
+		}
+		return fmt.Sprintf("%.2f", *v)
+	},
+	"formatFundPct": func(v *float64, fetched bool) string {
+		if v == nil {
+			return "—"
+		}
+		return fmt.Sprintf("%.2f%%", *v)
+	},
 	"performanceClass": func(v float64) string {
 		if v < 0 {
 			return "perf-negative"
@@ -110,10 +145,11 @@ type Handler struct {
 	positionsTmpl    *template.Template
 	positionRowTmpl  *template.Template
 	refreshSeconds   int
+	version          string
 }
 
 // NewHandler creates a new web handler.
-func NewHandler(service *portfolio.Service, refreshInterval time.Duration) *Handler {
+func NewHandler(service *portfolio.Service, refreshInterval time.Duration, version string) *Handler {
 	indexTmpl := template.Must(
 		template.New("index.html").Funcs(funcMap).ParseFS(webfs.TemplateFS, "templates/index.html"),
 	)
@@ -130,6 +166,7 @@ func NewHandler(service *portfolio.Service, refreshInterval time.Duration) *Hand
 		positionsTmpl:   positionsTmpl,
 		positionRowTmpl: positionRowTmpl,
 		refreshSeconds:  int(refreshInterval.Seconds()),
+		version:         version,
 	}
 }
 
@@ -154,8 +191,10 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		RefreshSeconds int
+		Version        string
 	}{
 		RefreshSeconds: h.refreshSeconds,
+		Version:        h.version,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -193,13 +232,25 @@ var sortFields = map[string]func(p portfolio.Position) float64{
 	"qty":            func(p portfolio.Position) float64 { return p.Quantity },
 	"price":          func(p portfolio.Position) float64 { return p.CurrentPriceGBP },
 	"div_yield":      func(p portfolio.Position) float64 { return p.DividendYieldPct },
+	"pe":             func(p portfolio.Position) float64 { return derefF(p.PERatio) },
+	"market_cap":     func(p portfolio.Position) float64 { return derefF(p.MarketCapM) },
+	"eps":            func(p portfolio.Position) float64 { return derefF(p.EPS) },
+	"eps_growth":     func(p portfolio.Position) float64 { return derefF(p.EPSGrowthPct) },
+	"revenue":        func(p portfolio.Position) float64 { return derefF(p.RevenueM) },
+	"profit_margin":  func(p portfolio.Position) float64 { return derefF(p.ProfitMarginPct) },
+}
+
+func derefF(v *float64) float64 {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 var sortStringFields = map[string]func(p portfolio.Position) string{
 	"name":          func(p portfolio.Position) string { return p.Ticker },
 	"exchange":      func(p portfolio.Position) string { return p.Exchange },
 	"first_bought":  func(p portfolio.Position) string { return p.FirstBought },
-	"isin":          func(p portfolio.Position) string { return p.ISIN },
 }
 
 type positionsData struct {

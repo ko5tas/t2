@@ -21,7 +21,14 @@ type Position struct {
 	DividendYieldPct float64 // totalDividends / marketValue * 100
 	FirstBought     string  // date of first buy order (e.g. "2025-01-15")
 	ISIN            string  // instrument ISIN
-	Profitable     bool    // true when MarketValue > Invested + £1 (minimum sell threshold)
+	Profitable      bool     // true when MarketValue > Invested + £1 (minimum sell threshold)
+	FundsFetched    bool     // true once fundamentals lookup attempted
+	PERatio         *float64 // price-to-earnings ratio
+	MarketCapM      *float64 // market capitalisation
+	EPS             *float64 // earnings per share
+	EPSGrowthPct    *float64 // year-over-year EPS growth %
+	RevenueM        *float64 // total revenue
+	ProfitMarginPct *float64 // net profit margin %
 }
 
 // Summary holds all positions plus aggregates.
