@@ -70,7 +70,10 @@
             padding: 6px 10px;
             border-bottom: 1px solid #2a2d35;
         }
+        tbody { counter-reset: rownum; }
+        tbody tr:not(.total) { counter-increment: rownum; }
         td.num { color: #4b5563; }
+        td.num::before { content: counter(rownum); }
         td .ticker { color: #60a5fa; font-weight: bold; }
         td .stock-name { color: #ffffff; margin-left: 6px; }
         td .raw-ticker { color: #777; margin-left: 6px; font-size: 11px; }
@@ -81,6 +84,8 @@
             font-weight: bold;
         }
         td.exchange { color: #ffffff; }
+        tbody tr:not(.total):nth-child(even) { background: #1e2229; }
+        tbody tr:not(.total):hover { background: #2a2f3a; }
         tr.total td {
             border-top: 2px solid #374151;
             border-bottom: none;

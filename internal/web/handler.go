@@ -15,7 +15,6 @@ import (
 )
 
 var funcMap = template.FuncMap{
-	"inc": func(i int) int { return i + 1 },
 	"formatGBP": func(v float64) string {
 		if v < 0 {
 			return fmt.Sprintf("-£%s", formatNumber(-v))
