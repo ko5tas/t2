@@ -4,11 +4,19 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 
 ## Features
 
-- Dark compact table showing ticker, stock name, T212 ticker, market value (GBP), and exchange
+- Dark compact table with ticker, stock name, ISIN, market value (GBP), exchange, and more
 - Accurate GBP market values using Trading212's own currency conversion
+- Recovery tracking: recovered amount (sells + dividends), dividend yield %, performance %
+- Financial fundamentals: P/E, EPS, EPS Growth, Market Cap, Revenue, Profit Margin
+  - Fetched from Yahoo Finance (all stocks) with optional Finnhub support for US stocks
+  - Daily refresh with disk cache at `~/.cache/t2/fundamentals.json`
+  - Hover tooltips on column headers explaining each metric
+- Native currency prices with GBP conversion for foreign stocks
+- Profitable position highlighting (green blink + favicon alert)
+- Historical FX rate conversion for foreign-currency orders
 - Sortable columns (click headers to toggle ascending/descending)
 - Default sort by market value descending
-- Auto-refresh every 15 minutes + manual refresh button
+- Auto-refresh every 15 minutes + manual refresh button per row
 - Exchange resolution via Trading212 metadata API
 - Single binary with embedded HTMX (no CDN dependency)
 
@@ -82,6 +90,7 @@ The config file is searched in order:
 | `base_url` | `https://live.trading212.com/api/v0` | API base URL |
 | `refresh_interval` | `15m` | How often to refresh positions |
 | `listen` | `:8080` | HTTP server listen address |
+| `finnhub_api_key` | (optional) | Finnhub API key for US stock fundamentals |
 
 ## License
 
