@@ -79,39 +79,68 @@ func (c *Client) GetAccountCash() (*AccountCash, error) {
 	return &cash, nil
 }
 
+// GetOrderHistoryPage fetches a single page of order history.
+// Pass "" for the first page, or a nextPagePath value for subsequent pages.
+// Returns the items, the next page path (empty if no more pages), and any error.
+func (c *Client) GetOrderHistoryPage(path string) ([]OrderHistoryItem, string, error) {
+	if path == "" {
+		path = "/equity/history/orders?limit=50"
+	}
+	var page OrderHistoryResponse
+	if err := c.getWithRetry(path, &page); err != nil {
+		return nil, "", fmt.Errorf("fetching order history page: %w", err)
+	}
+	return page.Items, nextPage(page.NextPagePath), nil
+}
+
 // GetOrderHistory fetches all historical orders, paginating through all pages.
 // Rate limit is 6 req/60s so we sleep 11s between pages and retry on 429.
 func (c *Client) GetOrderHistory() ([]OrderHistoryItem, error) {
 	var all []OrderHistoryItem
-	path := "/equity/history/orders?limit=50"
-	for path != "" {
-		var page OrderHistoryResponse
-		if err := c.getWithRetry(path, &page); err != nil {
-			return nil, fmt.Errorf("fetching order history: %w", err)
+	path := ""
+	for {
+		items, next, err := c.GetOrderHistoryPage(path)
+		if err != nil {
+			return nil, err
 		}
-		all = append(all, page.Items...)
-		path = nextPage(page.NextPagePath)
-		if path != "" {
-			time.Sleep(11 * time.Second)
+		all = append(all, items...)
+		if next == "" {
+			break
 		}
+		path = next
+		time.Sleep(11 * time.Second)
 	}
 	return all, nil
+}
+
+// GetDividendHistoryPage fetches a single page of dividend history.
+// Pass "" for the first page, or a nextPagePath value for subsequent pages.
+func (c *Client) GetDividendHistoryPage(path string) ([]DividendHistoryItem, string, error) {
+	if path == "" {
+		path = "/equity/history/dividends?limit=50"
+	}
+	var page DividendHistoryResponse
+	if err := c.getWithRetry(path, &page); err != nil {
+		return nil, "", fmt.Errorf("fetching dividend history page: %w", err)
+	}
+	return page.Items, nextPage(page.NextPagePath), nil
 }
 
 // GetDividendHistory fetches all historical dividends, paginating through all pages.
 func (c *Client) GetDividendHistory() ([]DividendHistoryItem, error) {
 	var all []DividendHistoryItem
-	path := "/equity/history/dividends?limit=50"
-	for path != "" {
-		var page DividendHistoryResponse
-		if err := c.getWithRetry(path, &page); err != nil {
-			return nil, fmt.Errorf("fetching dividend history: %w", err)
+	path := ""
+	for {
+		items, next, err := c.GetDividendHistoryPage(path)
+		if err != nil {
+			return nil, err
 		}
-		all = append(all, page.Items...)
-		path = nextPage(page.NextPagePath)
-		if path != "" {
-			time.Sleep(11 * time.Second)
+		all = append(all, items...)
+		if next == "" {
+			break
 		}
+		path = next
+		time.Sleep(11 * time.Second)
 	}
 	return all, nil
 }

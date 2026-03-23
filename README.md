@@ -14,9 +14,15 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 - Native currency prices with GBP conversion for foreign stocks
 - Profitable position highlighting (green blink + favicon alert)
 - Historical FX rate conversion for foreign-currency orders
+- Incremental history caching: orders and dividends cached to disk (`~/.cache/t2/orders.json`, `~/.cache/t2/dividends.json`)
+  - Cold start: fetches all pages from API, saves to disk
+  - Warm start: fetches only new data by finding overlap with cache (typically 1 API call)
 - Sortable columns (click headers to toggle ascending/descending)
 - Default sort by market value descending
 - Auto-refresh every 15 minutes + manual refresh button per row
+- Exchange abbreviations with hover tooltips (LSE, NASDAQ, NYSE, XETR, EPA, etc.)
+- Click-to-pin row highlighting that persists across auto-refreshes
+- History tab for closed/sold positions with performance tracking
 - Exchange resolution via Trading212 metadata API
 - Single binary with embedded HTMX (no CDN dependency)
 
@@ -110,6 +116,12 @@ graph TB
         FR["FundamentalsRefresh<br/>(every 24h)"]
     end
 
+    subgraph "Disk Cache (~/.cache/t2/)"
+        DC_O["orders.json"]
+        DC_D["dividends.json"]
+        DC_F["fundamentals.json"]
+    end
+
     subgraph "In-Memory Cache"
         PC[Positions + Prices]
         RC[Order History + Returns]
@@ -126,10 +138,13 @@ graph TB
 
     SR -->|GetPositions| T212
     SR -->|builds| PC
-    RR -->|GetOrders| T212
+    RR -->|"incremental fetch<br/>(overlap detection)"| T212
+    RR <-->|"load/save"| DC_O
+    RR <-->|"load/save"| DC_D
     RR -->|builds| RC
     FR -->|US stocks| FH
     FR -->|all stocks| YF
+    FR <-->|"load/save"| DC_F
     FR -->|builds| FC
 
     PC --> H
@@ -144,6 +159,7 @@ graph TB
 
 ```mermaid
 sequenceDiagram
+    participant Disk as Disk Cache
     participant T212 as Trading212 API
     participant BG as Background Goroutines
     participant Cache as In-Memory Cache
@@ -151,11 +167,19 @@ sequenceDiagram
 
     Note over BG: Startup
     BG->>Cache: refreshSummary() — initial render with dashes
-    BG->>T212: refreshReturns() (after 5s)
-    T212-->>BG: order history
+    BG->>Disk: load orders.json + dividends.json
+    Disk-->>BG: cached history (if exists)
+    BG->>T212: fetch page 1 (50 most recent)
+    T212-->>BG: page 1 items
+    Note over BG: overlap found?<br/>Yes → merge new items, stop<br/>No → fetch next page
+    BG->>Disk: save merged history
     BG->>Cache: rebuild summary with returns
+
+    BG->>Disk: load fundamentals.json
+    Disk-->>BG: cached fundamentals
     BG->>T212: fetchFundamentals (after 15s)
     T212-->>BG: P/E, EPS, etc.
+    BG->>Disk: save fundamentals.json
     BG->>Cache: rebuild summary with fundamentals
 
     loop Every 30 seconds
@@ -164,14 +188,18 @@ sequenceDiagram
     end
 
     loop Every 15 minutes
-        BG->>T212: GetPositions + GetOrders
-        T212-->>BG: fresh data
+        BG->>T212: GetPositions (full fetch)
+        T212-->>BG: current positions
+        BG->>Disk: load cached orders/dividends
+        BG->>T212: fetch page 1 (incremental)
+        Note over BG: typically 0 new items
         BG->>Cache: rebuild summary
     end
 
     loop Every 24 hours
         BG->>T212: fetch fundamentals
         T212-->>BG: P/E, EPS, etc.
+        BG->>Disk: save fundamentals.json
         BG->>Cache: rebuild summary
     end
 ```

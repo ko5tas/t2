@@ -94,8 +94,10 @@ type DividendHistoryResponse struct {
 
 // DividendHistoryItem is a single dividend payout from history.
 type DividendHistoryItem struct {
-	Ticker string  `json:"ticker"`
-	Amount float64 `json:"amount"` // in account currency (GBP)
+	Ticker    string  `json:"ticker"`
+	Amount    float64 `json:"amount"`    // in account currency (GBP)
+	Reference string  `json:"reference"` // unique transaction ID
+	PaidOn    string  `json:"paidOn"`    // ISO 8601 payment date
 }
 
 // AccountCash represents the account cash breakdown.

@@ -2,6 +2,7 @@ package portfolio
 
 import (
 	"log"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -25,6 +26,9 @@ type Service struct {
 
 	summaryMu sync.RWMutex
 	summary   *Summary // cached summary for cheap page polls
+
+	ordersCachePath    string // ~/.cache/t2/orders.json
+	dividendsCachePath string // ~/.cache/t2/dividends.json
 }
 
 // NewService creates a new portfolio service and loads initial metadata.
@@ -34,6 +38,10 @@ func NewService(client *trading212.Client, fundsSvc *fundamentals.Service) (*Ser
 		client:   client,
 		fundsSvc: fundsSvc,
 		returns:  make(map[string]tickerReturns),
+	}
+	if dir := cacheDir(); dir != "" {
+		s.ordersCachePath = filepath.Join(dir, "orders.json")
+		s.dividendsCachePath = filepath.Join(dir, "dividends.json")
 	}
 	var err error
 	for attempt := 1; attempt <= 5; attempt++ {
@@ -208,7 +216,7 @@ func toGBP(item trading212.OrderHistoryItem, rates map[string][]fxRateEntry) flo
 func (s *Service) refreshReturns() {
 	returns := make(map[string]tickerReturns)
 
-	orders, err := s.client.GetOrderHistory()
+	orders, err := fetchOrdersIncremental(s.client, s.ordersCachePath)
 	if err != nil {
 		log.Printf("order history fetch failed: %v", err)
 	} else {
@@ -255,7 +263,7 @@ func (s *Service) refreshReturns() {
 
 	time.Sleep(2 * time.Second) // respect rate limits between endpoints
 
-	dividends, err := s.client.GetDividendHistory()
+	dividends, err := fetchDividendsIncremental(s.client, s.dividendsCachePath)
 	if err != nil {
 		log.Printf("dividend history fetch failed: %v", err)
 	} else {
