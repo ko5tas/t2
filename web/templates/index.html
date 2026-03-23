@@ -130,6 +130,11 @@
         td.perf-good { color: #fdd835 !important; }
         td.perf-positive { color: #4caf50 !important; }
         td.perf-legendary { color: #5bc0be !important; }
+        @keyframes perf-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        td.perf-blink { animation: perf-blink 1s ease-in-out infinite; }
         @keyframes profitable-blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
