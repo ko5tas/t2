@@ -110,6 +110,9 @@ var funcMap = template.FuncMap{
 		if v >= 25 {
 			return "perf-good"
 		}
+		if v >= 0 && v <= 4 {
+			return "perf-warning perf-blink"
+		}
 		if v < 10 {
 			return "perf-warning"
 		}
