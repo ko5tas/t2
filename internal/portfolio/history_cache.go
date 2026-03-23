@@ -38,10 +38,19 @@ func dividendKey(item trading212.DividendHistoryItem) string {
 	return fmt.Sprintf("%s|%.2f|%s", item.Ticker, item.Amount, item.PaidOn)
 }
 
-// cacheDir returns the t2 cache directory path (~/.cache/t2).
+// cacheDir returns the t2 cache directory path.
+// Prefers ~/.cache/t2 for local users, falls back to /var/cache/t2 for system services.
 func cacheDir() string {
 	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".cache", "t2")
+		dir := filepath.Join(home, ".cache", "t2")
+		if err := os.MkdirAll(dir, 0700); err == nil {
+			return dir
+		}
+	}
+	// Fallback for systemd services where $HOME is /nonexistent.
+	const fallback = "/var/cache/t2"
+	if err := os.MkdirAll(fallback, 0700); err == nil {
+		return fallback
 	}
 	return ""
 }
@@ -77,7 +86,7 @@ func saveOrdersCache(path string, items []trading212.OrderHistoryItem) {
 		log.Printf("history-cache: dir error: %v", err)
 		return
 	}
-	if err := os.WriteFile(path, raw, 0644); err != nil {
+	if err := os.WriteFile(path, raw, 0600); err != nil {
 		log.Printf("history-cache: orders write error: %v", err)
 		return
 	}
@@ -115,7 +124,7 @@ func saveDividendsCache(path string, items []trading212.DividendHistoryItem) {
 		log.Printf("history-cache: dir error: %v", err)
 		return
 	}
-	if err := os.WriteFile(path, raw, 0644); err != nil {
+	if err := os.WriteFile(path, raw, 0600); err != nil {
 		log.Printf("history-cache: dividends write error: %v", err)
 		return
 	}
