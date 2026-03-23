@@ -76,14 +76,31 @@ func (y *yahooAuth) authenticate() error {
 	return nil
 }
 
-// mapYahooTicker converts a display ticker + exchange to a Yahoo Finance symbol.
+// mapYahooTicker converts a display ticker + abbreviated exchange to a Yahoo Finance symbol.
 func mapYahooTicker(displayTicker, exchange string) string {
-	ex := strings.ToLower(exchange)
-	switch {
-	case strings.Contains(ex, "london"):
+	switch exchange {
+	case "LSE", "LAIM", "LSE*":
 		return displayTicker + ".L"
-	case strings.Contains(ex, "paris"), strings.Contains(ex, "euronext"):
+	case "EPA":
 		return displayTicker + ".PA"
+	case "AMS":
+		return displayTicker + ".AS"
+	case "ELI":
+		return displayTicker + ".LS"
+	case "EBR":
+		return displayTicker + ".BR"
+	case "XETR", "GETTEX":
+		return displayTicker + ".DE"
+	case "BIT":
+		return displayTicker + ".MI"
+	case "SIX":
+		return displayTicker + ".SW"
+	case "BME":
+		return displayTicker + ".MC"
+	case "VIE":
+		return displayTicker + ".VI"
+	case "TSX":
+		return displayTicker + ".TO"
 	default:
 		return displayTicker
 	}

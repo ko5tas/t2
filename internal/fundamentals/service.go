@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -125,8 +124,7 @@ func (s *Service) RefreshAll(positions []PositionInfo) {
 }
 
 func (s *Service) isUSExchange(exchange string) bool {
-	ex := strings.ToLower(exchange)
-	return strings.Contains(ex, "nyse") || strings.Contains(ex, "nasdaq") || strings.Contains(ex, "us ")
+	return exchange == "NYSE" || exchange == "NASDAQ" || exchange == "OTC"
 }
 
 func (s *Service) loadCache() {
