@@ -14,7 +14,7 @@ func fetchFinnhub(httpClient *http.Client, apiKey, ticker string) (*Fundamentals
 	if err != nil {
 		return nil, fmt.Errorf("finnhub request for %s: %w", ticker, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 429 {
 		return nil, fmt.Errorf("finnhub rate limited for %s", ticker)

@@ -45,7 +45,7 @@ func (y *yahooAuth) authenticate() error {
 	if err != nil {
 		return fmt.Errorf("yahoo auth cookie: %w", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Step 2: Get crumb token.
 	req, err = http.NewRequest("GET", "https://query2.finance.yahoo.com/v1/test/getcrumb", nil)
@@ -57,7 +57,7 @@ func (y *yahooAuth) authenticate() error {
 	if err != nil {
 		return fmt.Errorf("yahoo auth crumb: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("yahoo auth crumb: status %d", resp.StatusCode)
@@ -128,7 +128,7 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 	if err != nil {
 		return nil, fmt.Errorf("yahoo request for %s: %w", yahooTicker, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 429 {
 		return nil, fmt.Errorf("yahoo rate limited for %s", yahooTicker)

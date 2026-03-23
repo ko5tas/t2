@@ -132,7 +132,7 @@ func formatNumber(v float64) string {
 			if i > 0 && (len(s)-i)%3 == 0 {
 				result = append(result, ',')
 			}
-			result = append(result, byte(c))
+			result = append(result, byte(c)) //nolint:gosec // c is always a digit (0-9)
 		}
 		s = string(result)
 	}
