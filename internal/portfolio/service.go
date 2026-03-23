@@ -101,7 +101,8 @@ type tickerReturns struct {
 	totalBuyCost      float64
 	totalSellProceeds float64
 	totalDividends    float64
-	firstBought       string // earliest BUY fill date (e.g. "2025-01-15")
+	firstBought       string     // earliest BUY fill date (e.g. "2025-01-15")
+	buyHistory        []BuyEntry // all BUY fills (date + quantity)
 }
 
 // fxRateEntry holds a date and rate pair for FX lookups.
@@ -232,10 +233,21 @@ func (s *Service) refreshReturns() {
 				if tr.firstBought == "" || fillDate < tr.firstBought {
 					tr.firstBought = fillDate
 				}
+				tr.buyHistory = append(tr.buyHistory, BuyEntry{
+					Date:     fillDate,
+					Quantity: item.Fill.Quantity,
+				})
 			case "SELL":
 				tr.totalSellProceeds += netGBP
 			}
 			returns[item.Order.Ticker] = tr
+		}
+		// Sort each ticker's buy history oldest-first.
+		for ticker, tr := range returns {
+			sort.Slice(tr.buyHistory, func(i, j int) bool {
+				return tr.buyHistory[i].Date < tr.buyHistory[j].Date
+			})
+			returns[ticker] = tr
 		}
 		log.Printf("loaded %d historical orders", len(orders))
 	}
@@ -466,6 +478,7 @@ func (s *Service) refreshSummary() {
 			DividendYieldPct: divYield,
 			FirstBought:      tr.firstBought,
 			ISIN:             isin,
+			BuyHistory:       tr.buyHistory,
 			Return:           ret,
 			ReturnPct:        retPct,
 			Invested:         invested,
@@ -481,10 +494,63 @@ func (s *Service) refreshSummary() {
 
 	go s.logCrossCheck(total)
 
+	// Build closed positions: tickers in returns but not in open positions.
+	openTickers := make(map[string]bool, len(positions))
+	for _, p := range positions {
+		openTickers[p.Ticker] = true
+	}
+	var closed []Position
+	for ticker, tr := range returns {
+		if openTickers[ticker] {
+			continue
+		}
+		// Must have had at least one buy to be meaningful.
+		if tr.totalBuyCost == 0 {
+			continue
+		}
+		ret, retPct, invested := computeReturn(tr)
+		perfPct := computePerformance(0, ret, invested) // no market value for closed
+
+		displayTicker := ticker
+		stockName := ""
+		exchange := "Unknown"
+		isin := ""
+		if inst, ok := s.instruments[ticker]; ok {
+			displayTicker = tickerDisplay(inst)
+			stockName = inst.Name
+			isin = inst.ISIN
+			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
+				exchange = exName
+			}
+		}
+
+		var divYield float64
+		if invested > 0 && tr.totalDividends > 0 {
+			divYield = tr.totalDividends / invested * 100
+		}
+
+		closed = append(closed, Position{
+			Ticker:           displayTicker,
+			RawTicker:        ticker,
+			StockName:        stockName,
+			Exchange:         exchange,
+			Return:           ret,
+			ReturnPct:        retPct,
+			Invested:         invested,
+			PerformancePct:   perfPct,
+			TotalDividends:   tr.totalDividends,
+			DividendYieldPct: divYield,
+			FirstBought:      tr.firstBought,
+			ISIN:             isin,
+			BuyHistory:       tr.buyHistory,
+		})
+	}
+
 	totalPerfPct := computePerformance(total, totalReturn, totalInvested)
 
 	summary := &Summary{
 		Positions:           result,
+		ClosedPositions:     closed,
 		TotalMarketValue:    total,
 		TotalReturn:         totalReturn,
 		TotalInvested:       totalInvested,
