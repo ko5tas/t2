@@ -29,6 +29,13 @@ type Position struct {
 	EPSGrowthPct    *float64 // year-over-year EPS growth %
 	RevenueM        *float64 // total revenue
 	ProfitMarginPct *float64 // net profit margin %
+	BuyHistory      []BuyEntry // all buy orders, sorted oldest-first
+}
+
+// BuyEntry records a single buy fill.
+type BuyEntry struct {
+	Date     string
+	Quantity float64
 }
 
 // Summary holds all positions plus aggregates.
@@ -40,5 +47,6 @@ type Summary struct {
 	TotalPerformancePct float64
 	LastUpdated         time.Time
 	AnyProfitable       bool
-	Error            string // non-empty if last fetch failed
+	ClosedPositions []Position // fully sold positions from order history
+	Error           string     // non-empty if last fetch failed
 }
