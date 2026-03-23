@@ -40,16 +40,20 @@ type Service struct {
 // NewService creates a fundamentals service and loads any existing disk cache.
 func NewService(finnhubKey string) *Service {
 	cacheDir := resolveCacheDir()
+	cacheFile := ""
+	if cacheDir != "" {
+		cacheFile = filepath.Join(cacheDir, "fundamentals.json")
+	}
 
 	s := &Service{
 		data:       make(map[string]Fundamentals),
 		finnhubKey: finnhubKey,
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 		yahooAuth:  newYahooAuth(),
-		cacheFile:  filepath.Join(cacheDir, "fundamentals.json"),
+		cacheFile:  cacheFile,
 	}
 
-	if cacheDir != "" {
+	if cacheFile != "" {
 		s.loadCache()
 	}
 
