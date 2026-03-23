@@ -146,7 +146,6 @@ type Handler struct {
 	indexTmpl        *template.Template
 	positionsTmpl    *template.Template
 	positionRowTmpl  *template.Template
-	historyTmpl      *template.Template
 	refreshSeconds   int
 	version          string
 }
@@ -162,16 +161,12 @@ func NewHandler(service *portfolio.Service, refreshInterval time.Duration, versi
 	positionRowTmpl := template.Must(
 		template.New("position_row.html").Funcs(funcMap).ParseFS(webfs.TemplateFS, "templates/position_row.html"),
 	)
-	historyTmpl := template.Must(
-		template.New("history.html").Funcs(funcMap).ParseFS(webfs.TemplateFS, "templates/history.html"),
-	)
 
 	return &Handler{
 		service:         service,
 		indexTmpl:       indexTmpl,
 		positionsTmpl:   positionsTmpl,
 		positionRowTmpl: positionRowTmpl,
-		historyTmpl:     historyTmpl,
 		refreshSeconds:  int(refreshInterval.Seconds()),
 		version:         version,
 	}
@@ -182,7 +177,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/", h.handleIndex)
 	mux.HandleFunc("/positions", h.handlePositions)
 	mux.HandleFunc("/position/", h.handlePosition)
-	mux.HandleFunc("/history", h.handleHistory)
 
 	staticSub, err := fs.Sub(webfs.StaticFS, "static")
 	if err != nil {
@@ -318,54 +312,6 @@ func (h *Handler) handlePositions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.positionsTmpl.Execute(w, data); err != nil {
-		log.Printf("template error: %v", err)
-	}
-}
-
-func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
-	summary := h.service.GetSummary()
-
-	sortBy := r.URL.Query().Get("sort")
-	dir := r.URL.Query().Get("dir")
-	if sortBy == "" {
-		sortBy = "invested"
-	}
-	if dir == "" {
-		dir = "desc"
-	}
-	asc := dir == "asc"
-
-	positions := summary.ClosedPositions
-	if fn, ok := sortFields[sortBy]; ok {
-		sort.SliceStable(positions, func(i, j int) bool {
-			if asc {
-				return fn(positions[i]) < fn(positions[j])
-			}
-			return fn(positions[i]) > fn(positions[j])
-		})
-	} else if fn, ok := sortStringFields[sortBy]; ok {
-		sort.SliceStable(positions, func(i, j int) bool {
-			if asc {
-				return strings.ToLower(fn(positions[i])) < strings.ToLower(fn(positions[j]))
-			}
-			return strings.ToLower(fn(positions[i])) > strings.ToLower(fn(positions[j]))
-		})
-	}
-
-	data := struct {
-		Positions   []portfolio.Position
-		Sort        string
-		Dir         string
-		LastUpdated time.Time
-	}{
-		Positions:   positions,
-		Sort:        sortBy,
-		Dir:         dir,
-		LastUpdated: summary.LastUpdated,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.historyTmpl.Execute(w, data); err != nil {
 		log.Printf("template error: %v", err)
 	}
 }

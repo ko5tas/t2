@@ -33,29 +33,6 @@
             text-align: right;
             margin-bottom: 10px;
         }
-        .tabs {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 12px;
-        }
-        .tab {
-            background: #22262e;
-            color: #777;
-            border: 1px solid #2a2f38;
-            padding: 8px 18px;
-            font-family: inherit;
-            font-size: 12px;
-            cursor: pointer;
-            border-radius: 4px 4px 0 0;
-            border-bottom: 2px solid transparent;
-        }
-        .tab:hover { color: #b0bec5; }
-        .tab.active {
-            color: #90caf9;
-            border-bottom: 2px solid #64b5f6;
-            background: #1e2229;
-        }
         .controls button {
             background: #22262e;
             color: #90caf9;
@@ -190,11 +167,10 @@
     <div class="header">
         <h1>T2 - Trading212 Dashboard</h1>
     </div>
-    <div class="tabs">
-        <button class="tab active" hx-get="/positions" hx-target="#positions" hx-swap="innerHTML"
-                hx-on::after-request="document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">Open Positions</button>
-        <button class="tab" hx-get="/history" hx-target="#positions" hx-swap="innerHTML"
-                hx-on::after-request="document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">History</button>
+    <div class="controls">
+        <button hx-get="/positions" hx-target="#positions" hx-swap="innerHTML">
+            Refresh
+        </button>
         <span class="htmx-indicator">Loading...</span>
     </div>
     <div id="positions"
