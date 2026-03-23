@@ -14,7 +14,8 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 - Native currency prices with GBP conversion for foreign stocks
 - Profitable position highlighting (green blink + favicon alert)
 - Historical FX rate conversion for foreign-currency orders
-- Incremental history caching: orders and dividends cached to disk (`~/.cache/t2/orders.json`, `~/.cache/t2/dividends.json`)
+- Incremental history caching: orders and dividends cached to disk
+  - Local: `~/.cache/t2/` — systemd fallback: `/var/cache/t2/` (owner-only permissions)
   - Cold start: fetches all pages from API, saves to disk
   - Warm start: fetches only new data by finding overlap with cache (typically 1 API call)
 - Sortable columns (click headers to toggle ascending/descending)

@@ -11,6 +11,22 @@ import (
 	"time"
 )
 
+// resolveCacheDir returns the t2 cache directory path.
+// Prefers ~/.cache/t2 for local users, falls back to /var/cache/t2 for system services.
+func resolveCacheDir() string {
+	if home, err := os.UserHomeDir(); err == nil {
+		dir := filepath.Join(home, ".cache", "t2")
+		if err := os.MkdirAll(dir, 0700); err == nil {
+			return dir
+		}
+	}
+	const fallback = "/var/cache/t2"
+	if err := os.MkdirAll(fallback, 0700); err == nil {
+		return fallback
+	}
+	return ""
+}
+
 // Service manages fetching and caching of company fundamentals.
 type Service struct {
 	mu         sync.RWMutex
@@ -23,10 +39,7 @@ type Service struct {
 
 // NewService creates a fundamentals service and loads any existing disk cache.
 func NewService(finnhubKey string) *Service {
-	cacheDir := ""
-	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir = filepath.Join(home, ".cache", "t2")
-	}
+	cacheDir := resolveCacheDir()
 
 	s := &Service{
 		data:       make(map[string]Fundamentals),
@@ -159,12 +172,12 @@ func (s *Service) saveCache() {
 		return
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.cacheFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.cacheFile), 0700); err != nil {
 		log.Printf("fundamentals: cache dir error: %v", err)
 		return
 	}
 
-	if err := os.WriteFile(s.cacheFile, raw, 0644); err != nil {
+	if err := os.WriteFile(s.cacheFile, raw, 0600); err != nil {
 		log.Printf("fundamentals: cache write error: %v", err)
 		return
 	}
