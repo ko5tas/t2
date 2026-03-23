@@ -69,6 +69,26 @@
             <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched}}</td>
         </tr>
         {{end}}
+        <tr class="total">
+            <td></td>
+            <td>Total</td>
+            <td></td>
+            {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
+            <td></td>
+            <td class="value">{{formatGBP .TotalInvested}} bought</td>
+            <td></td>
+            <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td></td>
+            <td class="value">—</td>
+            <td></td>
+            <td class="value">—</td>{{end}}
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
     </tbody>
 </table>
 <div class="header">
