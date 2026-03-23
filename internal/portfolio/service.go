@@ -70,6 +70,7 @@ func (s *Service) StartReturnsRefresh(interval time.Duration) {
 		time.Sleep(5 * time.Second)
 		s.refreshReturns()
 		s.refreshSummary() // update summary now that returns are available
+		s.tryFundamentalsRefresh()
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -529,7 +530,7 @@ func (s *Service) refreshSummary() {
 			divYield = tr.totalDividends / invested * 100
 		}
 
-		closed = append(closed, Position{
+		pos := Position{
 			Ticker:           displayTicker,
 			RawTicker:        ticker,
 			StockName:        stockName,
@@ -543,7 +544,9 @@ func (s *Service) refreshSummary() {
 			FirstBought:      tr.firstBought,
 			ISIN:             isin,
 			BuyHistory:       tr.buyHistory,
-		})
+		}
+		s.enrichWithFundamentals(&pos)
+		closed = append(closed, pos)
 	}
 
 	totalPerfPct := computePerformance(total, totalReturn, totalInvested)
@@ -633,8 +636,9 @@ func (s *Service) PositionTickers() []fundamentals.PositionInfo {
 	if s.summary == nil {
 		return nil
 	}
-	infos := make([]fundamentals.PositionInfo, len(s.summary.Positions))
-	for i, p := range s.summary.Positions {
+	all := append(s.summary.Positions, s.summary.ClosedPositions...)
+	infos := make([]fundamentals.PositionInfo, len(all))
+	for i, p := range all {
 		infos[i] = fundamentals.PositionInfo{
 			DisplayTicker: p.Ticker,
 			Exchange:      p.Exchange,
@@ -643,20 +647,30 @@ func (s *Service) PositionTickers() []fundamentals.PositionInfo {
 	return infos
 }
 
-// StartFundamentalsRefresh launches a background goroutine that fetches
-// company fundamentals after startup, then refreshes once every 24 hours.
+// tryFundamentalsRefresh checks if any tickers are missing from the fundamentals
+// cache and fetches them if needed. Called after returns refresh completes.
+func (s *Service) tryFundamentalsRefresh() {
+	if s.fundsSvc == nil {
+		return
+	}
+	tickers := s.PositionTickers()
+	log.Printf("fundamentals: %d tickers to check", len(tickers))
+	if len(tickers) > 0 && s.fundsSvc.NeedsRefresh(tickers) {
+		s.fundsSvc.RefreshAll(tickers)
+		s.refreshSummary()
+	}
+}
+
+// StartFundamentalsRefresh launches a background goroutine that refreshes
+// company fundamentals once every 24 hours.
 func (s *Service) StartFundamentalsRefresh() {
 	if s.fundsSvc == nil {
 		return
 	}
 	go func() {
-		// Wait for metadata and initial summary to be available.
+		// Initial check after a short delay (covers startup without order history).
 		time.Sleep(15 * time.Second)
-		tickers := s.PositionTickers()
-		if len(tickers) > 0 && s.fundsSvc.NeedsRefresh() {
-			s.fundsSvc.RefreshAll(tickers)
-			s.refreshSummary() // rebuild summary with fundamentals data
-		}
+		s.tryFundamentalsRefresh()
 
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()

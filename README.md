@@ -92,6 +92,90 @@ The config file is searched in order:
 | `listen` | `:8080` | HTTP server listen address |
 | `finnhub_api_key` | (optional) | [Finnhub](https://finnhub.io) API key for US stock fundamentals (free tier) |
 
+## Architecture
+
+### Data Flow
+
+```mermaid
+graph TB
+    subgraph External APIs
+        T212[Trading212 API]
+        YF[Yahoo Finance]
+        FH[Finnhub]
+    end
+
+    subgraph "Background Goroutines"
+        SR["SummaryRefresh<br/>(every 15m)"]
+        RR["ReturnsRefresh<br/>(every 15m)"]
+        FR["FundamentalsRefresh<br/>(every 24h)"]
+    end
+
+    subgraph "In-Memory Cache"
+        PC[Positions + Prices]
+        RC[Order History + Returns]
+        FC["Fundamentals<br/>(P/E, EPS, etc.)"]
+    end
+
+    subgraph "Go HTTP Server :8080"
+        H[Handler]
+    end
+
+    subgraph Browser
+        HX["HTMX auto-poll<br/>(every 30s)"]
+    end
+
+    SR -->|GetPositions| T212
+    SR -->|builds| PC
+    RR -->|GetOrders| T212
+    RR -->|builds| RC
+    FR -->|US stocks| FH
+    FR -->|all stocks| YF
+    FR -->|builds| FC
+
+    PC --> H
+    RC --> H
+    FC --> H
+
+    HX -->|"GET /positions<br/>GET /history"| H
+    H -->|HTML| HX
+```
+
+### Refresh Timeline
+
+```mermaid
+sequenceDiagram
+    participant T212 as Trading212 API
+    participant BG as Background Goroutines
+    participant Cache as In-Memory Cache
+    participant HTMX as Browser (HTMX)
+
+    Note over BG: Startup
+    BG->>Cache: refreshSummary() — initial render with dashes
+    BG->>T212: refreshReturns() (after 5s)
+    T212-->>BG: order history
+    BG->>Cache: rebuild summary with returns
+    BG->>T212: fetchFundamentals (after 15s)
+    T212-->>BG: P/E, EPS, etc.
+    BG->>Cache: rebuild summary with fundamentals
+
+    loop Every 30 seconds
+        HTMX->>Cache: GET /positions (read from cache)
+        Cache-->>HTMX: HTML response
+    end
+
+    loop Every 15 minutes
+        BG->>T212: GetPositions + GetOrders
+        T212-->>BG: fresh data
+        BG->>Cache: rebuild summary
+    end
+
+    loop Every 24 hours
+        BG->>T212: fetch fundamentals
+        T212-->>BG: P/E, EPS, etc.
+        BG->>Cache: rebuild summary
+    end
+```
+
 ## License
 
 See [LICENSE](LICENSE).

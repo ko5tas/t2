@@ -170,9 +170,17 @@ func (s *Service) saveCache() {
 	}
 }
 
-// NeedsRefresh returns true if the cache is empty or expired.
-func (s *Service) NeedsRefresh() bool {
+// NeedsRefresh returns true if the cache is empty or any requested ticker is missing.
+func (s *Service) NeedsRefresh(positions []PositionInfo) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.data) == 0
+	if len(s.data) == 0 {
+		return true
+	}
+	for _, p := range positions {
+		if _, ok := s.data[p.DisplayTicker]; !ok {
+			return true
+		}
+	}
+	return false
 }

@@ -328,7 +328,7 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 	sortBy := r.URL.Query().Get("sort")
 	dir := r.URL.Query().Get("dir")
 	if sortBy == "" {
-		sortBy = "invested"
+		sortBy = "performance"
 	}
 	if dir == "" {
 		dir = "desc"
