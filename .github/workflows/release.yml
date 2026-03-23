@@ -69,6 +69,11 @@ jobs:
             ${{ steps.version.outputs.version }} \
             ${{ matrix.deb_arch }}
 
+      - name: Lint deb package
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lintian > /dev/null
+          lintian --no-tag-display-limit *.deb
+
       - name: Upload deb to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

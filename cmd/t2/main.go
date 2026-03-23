@@ -45,8 +45,15 @@ func main() {
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
+	srv := &http.Server{
+		Addr:         cfg.Listen,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Printf("starting t2 dashboard on %s (refresh every %s)", cfg.Listen, cfg.RefreshInterval)
-	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server: %v", err)
 	}
 }
