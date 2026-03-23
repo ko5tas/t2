@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "t2-dashboard",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/t2/"],
+      "port": 8080
+    }
+  ]
+}

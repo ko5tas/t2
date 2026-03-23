@@ -331,7 +331,8 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			Ticker:           displayTicker,
 			RawTicker:        p.Ticker,
 			StockName:        stockName,
-			Exchange:         exchange,
+			Exchange:         shortenExchange(exchange),
+			ExchangeFull:     fullExchangeName(exchange),
 			MarketValue:      p.CurrentValueGBP,
 			Quantity:         p.Quantity,
 			CurrentPrice:     p.CurrentPrice,
@@ -469,7 +470,8 @@ func (s *Service) refreshSummary() {
 			Ticker:           displayTicker,
 			RawTicker:        p.Ticker,
 			StockName:        stockName,
-			Exchange:         exchange,
+			Exchange:         shortenExchange(exchange),
+			ExchangeFull:     fullExchangeName(exchange),
 			MarketValue:      marketValue,
 			Quantity:         p.Quantity,
 			CurrentPrice:     p.CurrentPrice,
@@ -534,7 +536,8 @@ func (s *Service) refreshSummary() {
 			Ticker:           displayTicker,
 			RawTicker:        ticker,
 			StockName:        stockName,
-			Exchange:         exchange,
+			Exchange:         shortenExchange(exchange),
+			ExchangeFull:     fullExchangeName(exchange),
 			Return:           ret,
 			ReturnPct:        retPct,
 			Invested:         invested,
@@ -697,6 +700,45 @@ func (s *Service) enrichWithFundamentals(pos *Position) {
 	pos.EPSGrowthPct = f.EPSGrowthPct
 	pos.RevenueM = f.Revenue
 	pos.ProfitMarginPct = f.ProfitMarginPct
+}
+
+// shortenExchange abbreviates common exchange names for compact display.
+var exchangeAbbreviations = map[string]string{
+	"London Stock Exchange":         "LSE",
+	"London Stock Exchange AIM":     "LAIM",
+	"London Stock Exchange NON-ISA": "LSE*",
+	"Deutsche Börse Xetra":          "XETR",
+	"Euronext Paris":                "EPA",
+	"Euronext Amsterdam":            "AMS",
+	"Euronext Lisbon":               "ELI",
+	"Euronext Brussels":             "EBR",
+	"Borsa Italiana":                "BIT",
+	"SIX Swiss Exchange":            "SIX",
+	"Bolsa de Madrid":               "BME",
+	"Wiener Börse":                  "VIE",
+	"Toronto Stock Exchange":        "TSX",
+	"OTC Markets":                   "OTC",
+	"Gettex":                        "GETTEX",
+}
+
+// exchangeFullNames expands terse Trading212 names into proper full names for tooltips.
+var exchangeFullNames = map[string]string{
+	"NASDAQ": "National Association of Securities Dealers Automated Quotations",
+	"NYSE":   "New York Stock Exchange",
+}
+
+func shortenExchange(name string) string {
+	if short, ok := exchangeAbbreviations[name]; ok {
+		return short
+	}
+	return name
+}
+
+func fullExchangeName(name string) string {
+	if full, ok := exchangeFullNames[name]; ok {
+		return full
+	}
+	return name
 }
 
 func (s *Service) logCrossCheck(calculatedTotal float64) {
