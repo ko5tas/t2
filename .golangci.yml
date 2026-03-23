@@ -10,8 +10,4 @@ linters:
   settings:
     gosec:
       excludes:
-        - G304  # file path from variable (expected — we read config files)
-
-issues:
-  exclude-dirs:
-    - vendor
+        - G304
