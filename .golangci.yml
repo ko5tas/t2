@@ -10,4 +10,5 @@ linters:
   settings:
     gosec:
       excludes:
-        - G304
+        - G304  # file path from variable (config files)
+        - G703  # path traversal in config lookup (intentional)

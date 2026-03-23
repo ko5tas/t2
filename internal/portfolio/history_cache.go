@@ -82,7 +82,7 @@ func saveOrdersCache(path string, items []trading212.OrderHistoryItem) {
 		log.Printf("history-cache: orders marshal error: %v", err)
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		log.Printf("history-cache: dir error: %v", err)
 		return
 	}
@@ -120,7 +120,7 @@ func saveDividendsCache(path string, items []trading212.DividendHistoryItem) {
 		log.Printf("history-cache: dividends marshal error: %v", err)
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		log.Printf("history-cache: dir error: %v", err)
 		return
 	}

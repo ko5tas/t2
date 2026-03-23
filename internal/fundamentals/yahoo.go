@@ -45,7 +45,7 @@ func (y *yahooAuth) authenticate() error {
 	if err != nil {
 		return fmt.Errorf("yahoo auth cookie: %w", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Step 2: Get crumb token.
 	req, err = http.NewRequest("GET", "https://query2.finance.yahoo.com/v1/test/getcrumb", nil)
