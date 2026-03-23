@@ -352,16 +352,32 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	var totalInvested, totalReturn float64
+	for _, p := range positions {
+		totalInvested += p.Invested
+		totalReturn += p.Return
+	}
+	var totalPerfPct float64
+	if totalInvested > 0 {
+		totalPerfPct = (totalReturn - totalInvested) / totalInvested * 100
+	}
+
 	data := struct {
-		Positions   []portfolio.Position
-		Sort        string
-		Dir         string
-		LastUpdated time.Time
+		Positions           []portfolio.Position
+		Sort                string
+		Dir                 string
+		LastUpdated         time.Time
+		TotalInvested       float64
+		TotalReturn         float64
+		TotalPerformancePct float64
 	}{
-		Positions:   positions,
-		Sort:        sortBy,
-		Dir:         dir,
-		LastUpdated: summary.LastUpdated,
+		Positions:           positions,
+		Sort:                sortBy,
+		Dir:                 dir,
+		LastUpdated:         summary.LastUpdated,
+		TotalInvested:       totalInvested,
+		TotalReturn:         totalReturn,
+		TotalPerformancePct: totalPerfPct,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
