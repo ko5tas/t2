@@ -1,15 +1,15 @@
 Package: t2
-Version: 0.7.3
+Version: 0.7.4
 Architecture: armhf
 Maintainer: ko5tas <ko5tas@users.noreply.github.com>
 Installed-Size: 12728
 Depends: systemd
 Recommends: ca-certificates
-Filename: pool/main/t2_0.7.3_armhf.deb
-Size: 6132810
-MD5sum: 88d433c1ac89dd52f259eb235776eb91
-SHA1: 10923634dc880921c8fd4a7278ab5d5f231793e9
-SHA256: 819fdd930ecfdd63344af6401b7e27df9cd3f6cfde4d4aee08c71bb92ce82292
+Filename: pool/main/t2_0.7.4_armhf.deb
+Size: 6132746
+MD5sum: 0102b43143dde25cfd23283154eff06f
+SHA1: e68a4930cd3f45713a5b765413d7971465d511d7
+SHA256: 7295b3927a54c119a8c9a7491cc04111a713922d4ba22c5d03cc5caf4e126486
 Section: misc
 Priority: optional
 Homepage: https://github.com/ko5tas/t2
