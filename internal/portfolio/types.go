@@ -7,7 +7,8 @@ type Position struct {
 	Ticker      string  // display ticker (e.g. "AAPL")
 	RawTicker   string  // T212 ticker (e.g. "AAPL_US_EQ")
 	StockName   string  // full name (e.g. "Apple Inc.")
-	Exchange    string
+	Exchange     string // abbreviated exchange name for display
+	ExchangeFull string // full exchange name for tooltips
 	MarketValue float64 // in account currency (£)
 	Quantity       float64 // number of shares held
 	Return         float64 // realised return in £ (sells + dividends)

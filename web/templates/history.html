@@ -51,7 +51,7 @@
         <tr>
             <td class="num"></td>
             <td{{if $p.BuyHistory}} class="has-tooltip"{{end}}><span class="ticker">{{$p.Ticker}}</span><span class="stock-name">{{$p.StockName}}</span><span class="raw-ticker">{{$p.RawTicker}}</span>{{if $p.ISIN}}<span class="isin">{{$p.ISIN}}</span>{{end}}{{if $p.BuyHistory}}<span class="tooltip"><strong>Buy History</strong><br>{{range $p.BuyHistory}}{{.Date}} — {{formatQty .Quantity}} shares<br>{{end}}</span>{{end}}</td>
-            <td class="exchange">{{$p.Exchange}}</td>
+            <td class="exchange" title="{{$p.ExchangeFull}}">{{$p.Exchange}}</td>
             {{if gt $p.Invested 0.0}}<td class="value {{returnClass $p.Return}}" data-val="{{$p.Return}}">{{formatGBP $p.Return}}{{if gt $p.TotalDividends 0.0}} ({{formatGBP $p.TotalDividends}} divs){{end}}</td>
             <td class="value" data-val="{{$p.DividendYieldPct}}">{{if gt $p.DividendYieldPct 0.0}}{{formatPct $p.DividendYieldPct}}{{else}}—{{end}}</td>
             <td class="value" data-val="{{$p.Invested}}">{{formatGBP $p.Invested}} bought</td>
