@@ -209,17 +209,34 @@
     <script>
     (function() {
         var pinnedTickers = new Set();
+        var selectableSpans = '.ticker, .stock-name, .raw-ticker, .isin';
+        var clickTimer = null;
         document.addEventListener('click', function(e) {
             var row = e.target.closest('tbody tr:not(.total)');
             if (!row) return;
             if (e.target.closest('button, a')) return;
-            var rt = row.querySelector('.raw-ticker');
-            var ticker = rt ? rt.textContent.trim() : null;
-            row.classList.toggle('pinned');
-            if (ticker) {
-                if (row.classList.contains('pinned')) pinnedTickers.add(ticker);
-                else pinnedTickers.delete(ticker);
-            }
+            if (e.target.closest(selectableSpans)) return;
+            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+            clickTimer = setTimeout(function() {
+                clickTimer = null;
+                var rt = row.querySelector('.raw-ticker');
+                var ticker = rt ? rt.textContent.trim() : null;
+                row.classList.toggle('pinned');
+                if (ticker) {
+                    if (row.classList.contains('pinned')) pinnedTickers.add(ticker);
+                    else pinnedTickers.delete(ticker);
+                }
+            }, 250);
+        });
+        document.addEventListener('dblclick', function(e) {
+            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+            var span = e.target.closest(selectableSpans);
+            if (!span) return;
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents(span);
+            sel.removeAllRanges();
+            sel.addRange(range);
         });
         document.body.addEventListener('htmx:afterSettle', function() {
             if (pinnedTickers.size === 0) return;
