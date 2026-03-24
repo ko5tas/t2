@@ -106,6 +106,31 @@ var funcMap = template.FuncMap{
 		}
 		return fmt.Sprintf("%.2f%%", *v)
 	},
+	"peClass": func(pe, sectorPE *float64, isETF bool) string {
+		if isETF || pe == nil || sectorPE == nil || *sectorPE == 0 {
+			return ""
+		}
+		if *pe < 0 {
+			return "pe-negative"
+		}
+		ratio := *pe / *sectorPE
+		if ratio <= 1.0 {
+			return "pe-cheap"
+		}
+		if ratio <= 1.2 {
+			return "" // fair value, default white
+		}
+		if ratio <= 1.5 {
+			return "pe-expensive"
+		}
+		return "pe-very-expensive"
+	},
+	"peTooltip": func(sector string, sectorPE *float64) string {
+		if sector == "" || sectorPE == nil {
+			return ""
+		}
+		return fmt.Sprintf("%s sector median P/E: %.1f", sector, *sectorPE)
+	},
 	"performanceClass": func(v float64) string {
 		if v < 0 {
 			return "perf-negative"

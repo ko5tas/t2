@@ -76,12 +76,17 @@
             <td class="value">—</td>{{end}}
             <td class="value" data-val="{{$p.Quantity}}">{{formatQty $p.Quantity}}</td>
             <td class="value" data-val="{{$p.CurrentPriceGBP}}">{{formatPrice $p.CurrentPrice $p.Currency $p.CurrentPriceGBP}}</td>
-            <td class="value">{{formatFund $p.PERatio $p.FundsFetched $p.IsETF}}</td>
-            <td class="value">{{formatFund $p.EPS $p.FundsFetched $p.IsETF}}</td>
-            <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched $p.IsETF}}</td>
-            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched $p.IsETF}}</td>
-            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched $p.IsETF}}</td>
-            <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched $p.IsETF}}</td>
+            {{if $p.IsETF}}<td class="value">N/A</td>
+            <td class="value">N/A</td>
+            <td class="value">N/A</td>
+            <td class="value">N/A</td>
+            <td class="value">N/A</td>
+            <td class="value">N/A</td>{{else}}<td class="value {{peClass $p.PERatio $p.SectorPE $p.IsETF}}"{{if $p.Sector}} title="{{peTooltip $p.Sector $p.SectorPE}}"{{end}}>{{formatFund $p.PERatio $p.FundsFetched}}</td>
+            <td class="value">{{formatFund $p.EPS $p.FundsFetched}}</td>
+            <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched}}</td>
+            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched}}</td>
+            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched}}</td>
+            <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched}}</td>{{end}}
         </tr>
         {{end}}
         <tr class="total">
@@ -91,9 +96,9 @@
             <td></td>
             {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
             <td></td>
-            <td class="value">{{formatGBP .TotalInvested}} <span style="color:#ffffff">bought</span></td>
+            <td class="value">{{formatGBP .TotalInvested}} bought</td>
             <td></td>
-            <td class="value {{performanceClass .TotalPerformancePct}}" style="{{if eq (performanceClass .TotalPerformancePct) ""}}color:#ffffff{{end}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
             <td></td>
             <td class="value">—</td>
             <td></td>

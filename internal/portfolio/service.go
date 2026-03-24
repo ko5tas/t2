@@ -306,8 +306,6 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 		displayTicker := p.Ticker
 		stockName := p.Name
 		exchange := "Unknown"
-		currency := ""
-		isin := ""
 		isETF := false
 		if inst, ok := s.instruments[p.Ticker]; ok {
 			displayTicker = tickerDisplay(inst)
@@ -317,13 +315,18 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
-			currency = inst.CurrencyCode
-			isin = inst.ISIN
 			isETF = inst.Type == "ETF"
 		}
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
 		perfPct := computePerformance(p.CurrentValueGBP, ret, invested)
+
+		currency := ""
+		isin := ""
+		if inst, ok := s.instruments[p.Ticker]; ok {
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
+		}
 		var priceGBP float64
 		if p.Quantity > 0 {
 			priceGBP = p.CurrentValueGBP / p.Quantity
@@ -439,8 +442,6 @@ func (s *Service) refreshSummary() {
 		displayTicker := p.Ticker
 		stockName := p.Name
 		exchange := "Unknown"
-		currency := ""
-		isin := ""
 		isETF := false
 		if inst, ok := s.instruments[p.Ticker]; ok {
 			displayTicker = tickerDisplay(inst)
@@ -450,8 +451,6 @@ func (s *Service) refreshSummary() {
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
-			currency = inst.CurrencyCode
-			isin = inst.ISIN
 			isETF = inst.Type == "ETF"
 		}
 
@@ -461,6 +460,13 @@ func (s *Service) refreshSummary() {
 
 		if profitable {
 			anyProfitable = true
+		}
+
+		currency := ""
+		isin := ""
+		if inst, ok := s.instruments[p.Ticker]; ok {
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
 		}
 		var priceGBP float64
 		if p.Quantity > 0 {
@@ -531,10 +537,10 @@ func (s *Service) refreshSummary() {
 			displayTicker = tickerDisplay(inst)
 			stockName = inst.Name
 			isin = inst.ISIN
-			isETF = inst.Type == "ETF"
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
+			isETF = inst.Type == "ETF"
 		}
 
 		var divYield float64
@@ -705,23 +711,21 @@ func (s *Service) enrichWithFundamentals(pos *Position) {
 	}
 	f := s.fundsSvc.Get(pos.Ticker)
 	pos.FundsFetched = f.Fetched
-
-	// ETFs don't have meaningful fundamentals — leave all nil (shows "N/A").
-	if pos.IsETF {
-		return
-	}
-
 	pos.PERatio = f.PERatio
+	// P/E fallback: calculate from price/EPS when API doesn't return P/E
+	// (common for companies with negative earnings).
+	if pos.PERatio == nil && f.EPS != nil && *f.EPS != 0 && pos.CurrentPrice > 0 && !pos.IsETF {
+		pe := pos.CurrentPrice / *f.EPS
+		pos.PERatio = &pe
+	}
 	pos.MarketCapM = f.MarketCap
 	pos.EPS = f.EPS
 	pos.EPSGrowthPct = f.EPSGrowthPct
 	pos.RevenueM = f.Revenue
 	pos.ProfitMarginPct = f.ProfitMarginPct
-
-	// Fallback: if API didn't return P/E but we have EPS and price, calculate it.
-	if pos.PERatio == nil && pos.EPS != nil && *pos.EPS != 0 && pos.CurrentPrice > 0 {
-		pe := pos.CurrentPrice / *pos.EPS
-		pos.PERatio = &pe
+	if f.Sector != nil {
+		pos.Sector = *f.Sector
+		pos.SectorPE = fundamentals.SectorMedianPE(*f.Sector)
 	}
 }
 

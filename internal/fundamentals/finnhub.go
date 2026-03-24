@@ -48,7 +48,87 @@ func fetchFinnhub(httpClient *http.Client, apiKey, ticker string) (*Fundamentals
 	f.ProfitMarginPct = extractFloat(result.Metric, "netProfitMarginTTM")
 
 	// Finnhub returns marketCapitalization in millions — keep as-is.
+
+	// Fetch sector from profile2 endpoint (finnhubIndustry is not in metrics).
+	profileURL := fmt.Sprintf("https://finnhub.io/api/v1/stock/profile2?symbol=%s&token=%s", ticker, apiKey)
+	profileResp, err := httpClient.Get(profileURL)
+	if err == nil {
+		defer func() { _ = profileResp.Body.Close() }()
+		if profileResp.StatusCode == 200 {
+			profileBody, _ := io.ReadAll(profileResp.Body)
+			var profile struct {
+				FinnhubIndustry string `json:"finnhubIndustry"`
+			}
+			if json.Unmarshal(profileBody, &profile) == nil && profile.FinnhubIndustry != "" {
+				sector := mapFinnhubToSector(profile.FinnhubIndustry)
+				f.Sector = &sector
+			}
+		}
+	}
+
 	return f, nil
+}
+
+// mapFinnhubToSector converts Finnhub's industry classification to Yahoo-style sector names.
+var finnhubIndustryToSector = map[string]string{
+	// Technology
+	"Technology":                  "Technology",
+	"Semiconductors":              "Technology",
+	"Software":                    "Technology",
+	"Communication Equipment":     "Technology",
+	// Financial Services
+	"Banking":                     "Financial Services",
+	"Insurance":                   "Financial Services",
+	"Financial Services":          "Financial Services",
+	"Capital Markets":             "Financial Services",
+	// Healthcare
+	"Pharmaceuticals":             "Healthcare",
+	"Biotechnology":               "Healthcare",
+	"Medical Devices":             "Healthcare",
+	"Health Care":                 "Healthcare",
+	// Energy
+	"Oil & Gas":                   "Energy",
+	"Energy":                      "Energy",
+	"Oil/Gas":                     "Energy",
+	// Industrials
+	"Aerospace & Defense":         "Industrials",
+	"Industrial":                  "Industrials",
+	"Machinery":                   "Industrials",
+	"Airlines":                    "Industrials",
+	"Defense":                     "Industrials",
+	// Consumer Cyclical
+	"Retail":                      "Consumer Cyclical",
+	"Auto":                        "Consumer Cyclical",
+	"Luxury Goods":                "Consumer Cyclical",
+	"E-Commerce":                  "Consumer Cyclical",
+	// Consumer Defensive
+	"Consumer Products":           "Consumer Defensive",
+	"Tobacco":                     "Consumer Defensive",
+	"Food & Beverage":             "Consumer Defensive",
+	"Beverages":                   "Consumer Defensive",
+	// Communication Services
+	"Media":                       "Communication Services",
+	"Telecommunications":          "Communication Services",
+	"Internet Media & Services":   "Communication Services",
+	// Basic Materials
+	"Mining":                      "Basic Materials",
+	"Metals & Mining":             "Basic Materials",
+	"Chemicals":                   "Basic Materials",
+	"Basic Materials":             "Basic Materials",
+	// Utilities
+	"Utilities":                   "Utilities",
+	"Electric Utilities":          "Utilities",
+	// Real Estate
+	"REITs":                       "Real Estate",
+	"Real Estate":                 "Real Estate",
+}
+
+func mapFinnhubToSector(industry string) string {
+	if sector, ok := finnhubIndustryToSector[industry]; ok {
+		return sector
+	}
+	// Fallback: use the industry name as-is.
+	return industry
 }
 
 // extractFloat pulls a float64 from a map, returning nil if absent or not a number.

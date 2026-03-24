@@ -193,7 +193,12 @@ func (s *Service) NeedsRefresh(positions []PositionInfo) bool {
 		return true
 	}
 	for _, p := range positions {
-		if _, ok := s.data[p.DisplayTicker]; !ok {
+		f, ok := s.data[p.DisplayTicker]
+		if !ok {
+			return true
+		}
+		// Force refresh if sector data is missing (added in later version).
+		if f.Fetched && f.Sector == nil {
 			return true
 		}
 	}
