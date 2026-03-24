@@ -30,8 +30,10 @@ type Position struct {
 	EPSGrowthPct    *float64 // year-over-year EPS growth %
 	RevenueM        *float64 // total revenue
 	ProfitMarginPct *float64 // net profit margin %
+	Sector          string   // sector name (e.g. "Technology")
+	SectorPE        *float64 // sector median P/E for comparison
+	IsETF           bool     // true if Trading212 instrument type is ETF
 	BuyHistory      []BuyEntry // all buy orders, sorted oldest-first
-	IsETF           bool       // true if instrument type is ETF
 }
 
 // BuyEntry records a single buy fill.

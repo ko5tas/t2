@@ -11,6 +11,7 @@ type Fundamentals struct {
 	EPSGrowthPct    *float64 `json:"eps_growth_pct,omitempty"`
 	Revenue         *float64 `json:"revenue,omitempty"`          // in original units
 	ProfitMarginPct *float64 `json:"profit_margin_pct,omitempty"`
+	Sector          *string  `json:"sector,omitempty"` // e.g. "Technology", "Financial Services"
 }
 
 // PositionInfo identifies a position for the fundamentals service.

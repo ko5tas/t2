@@ -114,7 +114,7 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 	auth.mu.Unlock()
 
 	url := fmt.Sprintf(
-		"https://query1.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=defaultKeyStatistics,financialData,summaryDetail,earningsTrend&crumb=%s",
+		"https://query1.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=defaultKeyStatistics,financialData,summaryDetail,earningsTrend,assetProfile&crumb=%s",
 		yahooTicker, crumb,
 	)
 
@@ -148,6 +148,7 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 				DefaultKeyStatistics map[string]interface{} `json:"defaultKeyStatistics"`
 				FinancialData        map[string]interface{} `json:"financialData"`
 				SummaryDetail        map[string]interface{} `json:"summaryDetail"`
+				AssetProfile         map[string]interface{} `json:"assetProfile"`
 				EarningsTrend        struct {
 					Trend []struct {
 						Period string                 `json:"period"`
@@ -206,6 +207,13 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 	if f.ProfitMarginPct != nil {
 		pct := *f.ProfitMarginPct * 100
 		f.ProfitMarginPct = &pct
+	}
+
+	// Extract sector from assetProfile module.
+	if r.AssetProfile != nil {
+		if s, ok := r.AssetProfile["sector"].(string); ok && s != "" {
+			f.Sector = &s
+		}
 	}
 
 	return f, nil

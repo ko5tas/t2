@@ -151,11 +151,16 @@
         }
         .refresh-btn:hover { color: #90caf9; background: #2a2a4a; }
         td.negative { color: #ef5350; }
-        td.perf-negative, .perf-negative { color: #ef5350 !important; }
-        td.perf-warning, .perf-warning { color: #ff9800 !important; }
-        td.perf-good, .perf-good { color: #fdd835 !important; }
-        td.perf-positive, .perf-positive { color: #4caf50 !important; }
-        td.perf-legendary, .perf-legendary { color: #5bc0be !important; }
+        /* P/E ratio sector-relative colouring */
+        .pe-negative { color: #888 !important; }
+        .pe-cheap { color: #4caf50 !important; }
+        .pe-expensive { color: #ff9800 !important; }
+        .pe-very-expensive { color: #f44336 !important; }
+        td.perf-negative { color: #ef5350 !important; }
+        td.perf-warning { color: #ff9800 !important; }
+        td.perf-good { color: #fdd835 !important; }
+        td.perf-positive { color: #4caf50 !important; }
+        td.perf-legendary { color: #5bc0be !important; }
         @keyframes perf-blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
@@ -209,34 +214,17 @@
     <script>
     (function() {
         var pinnedTickers = new Set();
-        var selectableSpans = '.ticker, .stock-name, .raw-ticker, .isin';
-        var clickTimer = null;
         document.addEventListener('click', function(e) {
             var row = e.target.closest('tbody tr:not(.total)');
             if (!row) return;
             if (e.target.closest('button, a')) return;
-            if (e.target.closest(selectableSpans)) return;
-            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-            clickTimer = setTimeout(function() {
-                clickTimer = null;
-                var rt = row.querySelector('.raw-ticker');
-                var ticker = rt ? rt.textContent.trim() : null;
-                row.classList.toggle('pinned');
-                if (ticker) {
-                    if (row.classList.contains('pinned')) pinnedTickers.add(ticker);
-                    else pinnedTickers.delete(ticker);
-                }
-            }, 250);
-        });
-        document.addEventListener('dblclick', function(e) {
-            if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-            var span = e.target.closest(selectableSpans);
-            if (!span) return;
-            var sel = window.getSelection();
-            var range = document.createRange();
-            range.selectNodeContents(span);
-            sel.removeAllRanges();
-            sel.addRange(range);
+            var rt = row.querySelector('.raw-ticker');
+            var ticker = rt ? rt.textContent.trim() : null;
+            row.classList.toggle('pinned');
+            if (ticker) {
+                if (row.classList.contains('pinned')) pinnedTickers.add(ticker);
+                else pinnedTickers.delete(ticker);
+            }
         });
         document.body.addEventListener('htmx:afterSettle', function() {
             if (pinnedTickers.size === 0) return;
