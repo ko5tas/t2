@@ -61,12 +61,12 @@
             <td class="value">—</td>
             <td class="value">—</td>
             <td class="value">—</td>{{end}}
-            <td class="value">{{formatFund $p.PERatio $p.FundsFetched}}</td>
-            <td class="value">{{formatFund $p.EPS $p.FundsFetched}}</td>
-            <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched}}</td>
-            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched}}</td>
-            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched}}</td>
-            <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched}}</td>
+            <td class="value">{{formatFund $p.PERatio $p.FundsFetched $p.IsETF}}</td>
+            <td class="value">{{formatFund $p.EPS $p.FundsFetched $p.IsETF}}</td>
+            <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched $p.IsETF}}</td>
+            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched $p.IsETF}}</td>
+            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched $p.IsETF}}</td>
+            <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched $p.IsETF}}</td>
         </tr>
         {{end}}
         <tr class="total">
