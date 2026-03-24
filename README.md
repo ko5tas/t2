@@ -8,11 +8,15 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 - Accurate GBP market values using Trading212's own currency conversion
 - Recovery tracking: recovered amount (sells + dividends), dividend yield %, performance %
 - Financial fundamentals: P/E, EPS, EPS Growth, Market Cap, Revenue, Profit Margin
-  - Fetched from Yahoo Finance (all stocks) with optional Finnhub support for US stocks
-  - Daily refresh with disk cache at `~/.cache/t2/fundamentals.json`
+  - Fetched from Yahoo Finance (EU stocks, ISIN-based ticker lookup) with optional Finnhub for US stocks
+  - Daily refresh with disk cache
   - Hover tooltips on column headers explaining each metric
+  - ETFs detected via Trading212 instrument type → show "N/A" instead of dashes
+  - P/E fallback: calculated from price/EPS when API doesn't return P/E directly
 - Native currency prices with GBP conversion for foreign stocks
 - Profitable position highlighting (green blink + favicon alert)
+- Near-breakeven blinking (0–4% performance in orange)
+- Buy history tooltips: hover over stock name to see purchase dates and quantities
 - Historical FX rate conversion for foreign-currency orders
 - Incremental history caching: orders and dividends cached to disk
   - Local: `~/.cache/t2/` — systemd fallback: `/var/cache/t2/` (owner-only permissions)
@@ -23,7 +27,9 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 - Auto-refresh every 15 minutes + manual refresh button per row
 - Exchange abbreviations with hover tooltips (LSE, NASDAQ, NYSE, XETR, EPA, etc.)
 - Click-to-pin row highlighting that persists across auto-refreshes
-- History tab for closed/sold positions with performance tracking
+- Double-click to select individual text spans (ticker, name, ISIN, raw ticker)
+- Zebra striping and hover highlighting for row readability
+- History tab for closed/sold positions with performance tracking and totals
 - Exchange resolution via Trading212 metadata API
 - Single binary with embedded HTMX (no CDN dependency)
 
@@ -117,7 +123,7 @@ graph TB
         FR["FundamentalsRefresh<br/>(every 24h)"]
     end
 
-    subgraph "Disk Cache (~/.cache/t2/)"
+    subgraph "Disk Cache (/var/cache/t2/)"
         DC_O["orders.json"]
         DC_D["dividends.json"]
         DC_F["fundamentals.json"]
@@ -144,7 +150,7 @@ graph TB
     RR <-->|"load/save"| DC_D
     RR -->|builds| RC
     FR -->|US stocks| FH
-    FR -->|all stocks| YF
+    FR -->|"EU stocks<br/>(ISIN→ticker)"| YF
     FR <-->|"load/save"| DC_F
     FR -->|builds| FC
 
@@ -162,6 +168,7 @@ graph TB
 sequenceDiagram
     participant Disk as Disk Cache
     participant T212 as Trading212 API
+    participant FH as Finnhub / Yahoo
     participant BG as Background Goroutines
     participant Cache as In-Memory Cache
     participant HTMX as Browser (HTMX)
@@ -178,8 +185,8 @@ sequenceDiagram
 
     BG->>Disk: load fundamentals.json
     Disk-->>BG: cached fundamentals
-    BG->>T212: fetchFundamentals (after 15s)
-    T212-->>BG: P/E, EPS, etc.
+    BG->>FH: fetchFundamentals (after 15s)
+    FH-->>BG: P/E, EPS, etc.
     BG->>Disk: save fundamentals.json
     BG->>Cache: rebuild summary with fundamentals
 
@@ -198,8 +205,8 @@ sequenceDiagram
     end
 
     loop Every 24 hours
-        BG->>T212: fetch fundamentals
-        T212-->>BG: P/E, EPS, etc.
+        BG->>FH: fetch fundamentals
+        FH-->>BG: P/E, EPS, etc.
         BG->>Disk: save fundamentals.json
         BG->>Cache: rebuild summary
     end
