@@ -306,6 +306,9 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 		displayTicker := p.Ticker
 		stockName := p.Name
 		exchange := "Unknown"
+		currency := ""
+		isin := ""
+		isETF := false
 		if inst, ok := s.instruments[p.Ticker]; ok {
 			displayTicker = tickerDisplay(inst)
 			if stockName == "" {
@@ -314,17 +317,13 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
+			isETF = inst.Type == "ETF"
 		}
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
 		perfPct := computePerformance(p.CurrentValueGBP, ret, invested)
-
-		currency := ""
-		isin := ""
-		if inst, ok := s.instruments[p.Ticker]; ok {
-			currency = inst.CurrencyCode
-			isin = inst.ISIN
-		}
 		var priceGBP float64
 		if p.Quantity > 0 {
 			priceGBP = p.CurrentValueGBP / p.Quantity
@@ -355,6 +354,7 @@ func (s *Service) GetPosition(rawTicker string) *Position {
 			Invested:         invested,
 			PerformancePct:   perfPct,
 			Profitable:       invested > 0 && p.CurrentValueGBP > invested+1,
+			IsETF:            isETF,
 		}
 		s.enrichWithFundamentals(&pos)
 		s.updateSummaryPosition(&pos)
@@ -439,6 +439,9 @@ func (s *Service) refreshSummary() {
 		displayTicker := p.Ticker
 		stockName := p.Name
 		exchange := "Unknown"
+		currency := ""
+		isin := ""
+		isETF := false
 		if inst, ok := s.instruments[p.Ticker]; ok {
 			displayTicker = tickerDisplay(inst)
 			if stockName == "" {
@@ -447,6 +450,9 @@ func (s *Service) refreshSummary() {
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
+			currency = inst.CurrencyCode
+			isin = inst.ISIN
+			isETF = inst.Type == "ETF"
 		}
 
 		ret, retPct, invested := computeReturn(returns[p.Ticker])
@@ -455,13 +461,6 @@ func (s *Service) refreshSummary() {
 
 		if profitable {
 			anyProfitable = true
-		}
-
-		currency := ""
-		isin := ""
-		if inst, ok := s.instruments[p.Ticker]; ok {
-			currency = inst.CurrencyCode
-			isin = inst.ISIN
 		}
 		var priceGBP float64
 		if p.Quantity > 0 {
@@ -495,6 +494,7 @@ func (s *Service) refreshSummary() {
 			Invested:         invested,
 			PerformancePct:   perfPct,
 			Profitable:       profitable,
+			IsETF:            isETF,
 		}
 		s.enrichWithFundamentals(&pos)
 		result = append(result, pos)
@@ -526,10 +526,12 @@ func (s *Service) refreshSummary() {
 		stockName := ""
 		exchange := "Unknown"
 		isin := ""
+		isETF := false
 		if inst, ok := s.instruments[ticker]; ok {
 			displayTicker = tickerDisplay(inst)
 			stockName = inst.Name
 			isin = inst.ISIN
+			isETF = inst.Type == "ETF"
 			if exName, ok := s.exchanges[inst.WorkingScheduleID]; ok {
 				exchange = exName
 			}
@@ -555,6 +557,7 @@ func (s *Service) refreshSummary() {
 			FirstBought:      tr.firstBought,
 			ISIN:             isin,
 			BuyHistory:       tr.buyHistory,
+			IsETF:            isETF,
 		}
 		s.enrichWithFundamentals(&pos)
 		closed = append(closed, pos)
@@ -702,12 +705,24 @@ func (s *Service) enrichWithFundamentals(pos *Position) {
 	}
 	f := s.fundsSvc.Get(pos.Ticker)
 	pos.FundsFetched = f.Fetched
+
+	// ETFs don't have meaningful fundamentals — leave all nil (shows "N/A").
+	if pos.IsETF {
+		return
+	}
+
 	pos.PERatio = f.PERatio
 	pos.MarketCapM = f.MarketCap
 	pos.EPS = f.EPS
 	pos.EPSGrowthPct = f.EPSGrowthPct
 	pos.RevenueM = f.Revenue
 	pos.ProfitMarginPct = f.ProfitMarginPct
+
+	// Fallback: if API didn't return P/E but we have EPS and price, calculate it.
+	if pos.PERatio == nil && pos.EPS != nil && *pos.EPS != 0 && pos.CurrentPrice > 0 {
+		pe := pos.CurrentPrice / *pos.EPS
+		pos.PERatio = &pe
+	}
 }
 
 // shortenExchange abbreviates common exchange names for compact display.

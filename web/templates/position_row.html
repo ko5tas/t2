@@ -13,9 +13,9 @@
 <td class="value">—</td>{{end}}
 <td class="value" data-val="{{.Quantity}}">{{formatQty .Quantity}}</td>
 <td class="value" data-val="{{.CurrentPriceGBP}}">{{formatPrice .CurrentPrice .Currency .CurrentPriceGBP}}</td>
-<td class="value">{{formatFund .PERatio .FundsFetched}}</td>
+<td class="value">{{formatFund .PERatio .FundsFetched .IsETF}}</td>
 <td class="value">{{formatFund .EPS .FundsFetched}}</td>
-<td class="value">{{formatFundPct .EPSGrowthPct .FundsFetched}}</td>
-<td class="value">{{formatBigNum .MarketCapM .FundsFetched}}</td>
-<td class="value">{{formatBigNum .RevenueM .FundsFetched}}</td>
-<td class="value">{{formatFundPct .ProfitMarginPct .FundsFetched}}</td>
+<td class="value">{{formatFundPct .EPSGrowthPct .FundsFetched .IsETF}}</td>
+<td class="value">{{formatBigNum .MarketCapM .FundsFetched .IsETF}}</td>
+<td class="value">{{formatBigNum .RevenueM .FundsFetched .IsETF}}</td>
+<td class="value">{{formatFundPct .ProfitMarginPct .FundsFetched .IsETF}}</td>

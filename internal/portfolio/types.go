@@ -31,6 +31,7 @@ type Position struct {
 	RevenueM        *float64 // total revenue
 	ProfitMarginPct *float64 // net profit margin %
 	BuyHistory      []BuyEntry // all buy orders, sorted oldest-first
+	IsETF           bool       // true if instrument type is ETF
 }
 
 // BuyEntry records a single buy fill.
