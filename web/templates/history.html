@@ -73,11 +73,11 @@
             <td></td>
             <td>Total</td>
             <td></td>
-            {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}}</td>
+            {{if gt .TotalInvested 0.0}}<td class="value {{returnClass .TotalReturn}}">{{formatGBP .TotalReturn}} (<span class="{{performanceClass .TotalPerformancePct}}">{{formatGBP .TotalProfit}}</span>)</td>
             <td></td>
-            <td class="value">{{formatGBP .TotalInvested}} bought</td>
+            <td class="value">{{formatGBP .TotalInvested}} <span style="color:#ffffff">bought</span></td>
             <td></td>
-            <td class="value {{performanceClass .TotalPerformancePct}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
+            <td class="value {{performanceClass .TotalPerformancePct}}" style="{{if eq (performanceClass .TotalPerformancePct) ""}}color:#ffffff{{end}}">{{formatPct .TotalPerformancePct}}</td>{{else}}<td class="value">—</td>
             <td></td>
             <td class="value">—</td>
             <td></td>

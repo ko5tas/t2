@@ -369,6 +369,7 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		LastUpdated         time.Time
 		TotalInvested       float64
 		TotalReturn         float64
+		TotalProfit         float64
 		TotalPerformancePct float64
 	}{
 		Positions:           positions,
@@ -377,6 +378,7 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		LastUpdated:         summary.LastUpdated,
 		TotalInvested:       totalInvested,
 		TotalReturn:         totalReturn,
+		TotalProfit:         totalReturn - totalInvested,
 		TotalPerformancePct: totalPerfPct,
 	}
 
