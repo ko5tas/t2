@@ -19,8 +19,8 @@
 <td class="value">N/A</td>
 <td class="value">N/A</td>
 <td class="value">N/A</td>{{else}}<td class="value {{peClass .PERatio .SectorPE .IsETF}}"{{if .Sector}} title="{{peTooltip .Sector .SectorPE}}"{{end}}>{{formatFund .PERatio .FundsFetched}}</td>
-<td class="value">{{formatFund .EPS .FundsFetched}}</td>
+<td class="value">{{fxFund .EPS .FundsFetched .FXError}}</td>
 <td class="value">{{formatFundPct .EPSGrowthPct .FundsFetched}}</td>
-<td class="value">{{formatBigNum .MarketCapM .FundsFetched}}</td>
-<td class="value">{{formatBigNum .RevenueM .FundsFetched}}</td>
+<td class="value">{{fxBigNum .MarketCapM .FundsFetched .FXError}}</td>
+<td class="value">{{fxBigNum .RevenueM .FundsFetched .FXError}}</td>
 <td class="value">{{formatFundPct .ProfitMarginPct .FundsFetched}}</td>{{end}}

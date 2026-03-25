@@ -727,6 +727,7 @@ func (s *Service) enrichWithFundamentals(pos *Position) {
 		pos.Sector = *f.Sector
 		pos.SectorPE = fundamentals.SectorMedianPE(*f.Sector)
 	}
+	pos.FXError = f.FXError
 }
 
 // shortenExchange abbreviates common exchange names for compact display.

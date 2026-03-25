@@ -84,34 +84,111 @@ func (s *Service) RefreshAll(positions []PositionInfo) {
 	s.mu.RUnlock()
 
 	for _, p := range positions {
-		var f *Fundamentals
-		var err error
-		var source string
-
-		if s.isUSExchange(p.Exchange) && s.finnhubKey != "" {
-			source = "finnhub"
-			f, err = fetchFinnhub(s.httpClient, s.finnhubKey, p.DisplayTicker)
-			if err != nil {
-				log.Printf("fundamentals: %s fetch failed for %s: %v, falling back to yahoo", source, p.DisplayTicker, err)
-				source = "yahoo"
-				yahooTicker := mapYahooTicker(p.DisplayTicker, p.Exchange)
-				f, err = fetchYahoo(s.yahooAuth, yahooTicker)
-			}
-			time.Sleep(1100 * time.Millisecond) // respect Finnhub rate limit
-		} else {
-			source = "yahoo"
-			yahooTicker := mapYahooTicker(p.DisplayTicker, p.Exchange)
-			f, err = fetchYahoo(s.yahooAuth, yahooTicker)
-			time.Sleep(500 * time.Millisecond) // be respectful to Yahoo
-		}
-
+		// Yahoo is the primary source for all metrics (consistent units).
+		yahooTicker := mapYahooTicker(p.DisplayTicker, p.Exchange)
+		f, err := fetchYahoo(s.yahooAuth, yahooTicker)
 		if err != nil {
-			log.Printf("fundamentals: %s fetch failed for %s: %v", source, p.DisplayTicker, err)
+			log.Printf("fundamentals: yahoo fetch failed for %s: %v", p.DisplayTicker, err)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
-		if f != nil {
-			data[p.DisplayTicker] = *f
-			log.Printf("fundamentals: loaded %s via %s", p.DisplayTicker, source)
+
+		// If Yahoo didn't return a sector and we have Finnhub, try Finnhub profile2.
+		if f.Sector == nil && s.finnhubKey != "" && s.isUSExchange(p.Exchange) {
+			if sector := fetchFinnhubSector(s.httpClient, s.finnhubKey, p.DisplayTicker); sector != nil {
+				f.Sector = sector
+			}
+			time.Sleep(1100 * time.Millisecond) // respect Finnhub rate limit
+		}
+
+		data[p.DisplayTicker] = *f
+		log.Printf("fundamentals: loaded %s via yahoo", p.DisplayTicker)
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Convert non-USD financials to USD using live FX rates from Yahoo.
+	// Revenue uses FinancialCurrency (reporting currency, e.g. TWD for TSMC).
+	// Market cap and EPS use TradingCurrency (e.g. GBp for LSE, USD for NYSE).
+	currencies := make(map[string]bool)
+	for _, f := range data {
+		if f.FinancialCurrency != "" && f.FinancialCurrency != "USD" {
+			// Normalize GBp to GBP — we fetch one rate and derive pence.
+			ccy := f.FinancialCurrency
+			if ccy == "GBp" {
+				ccy = "GBP"
+			}
+			currencies[ccy] = true
+		}
+		if f.TradingCurrency != "" && f.TradingCurrency != "USD" {
+			ccy := f.TradingCurrency
+			if ccy == "GBp" {
+				ccy = "GBP"
+			}
+			currencies[ccy] = true
+		}
+	}
+	fxRates := make(map[string]float64)
+	for ccy := range currencies {
+		rate, err := fetchYahooFXRate(s.yahooAuth, ccy)
+		if err != nil {
+			log.Printf("fundamentals: FX rate fetch failed for %s: %v", ccy, err)
+			continue
+		}
+		fxRates[ccy] = rate
+		log.Printf("fundamentals: FX rate %s→USD = %.6f", ccy, rate)
+		time.Sleep(500 * time.Millisecond)
+	}
+	for ticker, f := range data {
+		changed := false
+		// Convert revenue (uses financial/reporting currency).
+		// Revenue is always in base currency (GBP not GBp).
+		if f.Revenue != nil && f.FinancialCurrency != "" && f.FinancialCurrency != "USD" {
+			revCcy := f.FinancialCurrency
+			if revCcy == "GBp" {
+				revCcy = "GBP"
+			}
+			if rate, ok := fxRates[revCcy]; ok {
+				converted := *f.Revenue * rate
+				f.Revenue = &converted
+				changed = true
+			} else {
+				f.Revenue = nil
+				f.FXError = true
+				changed = true
+			}
+		}
+		// Convert market cap and EPS for non-USD trading currencies.
+		// Market cap is in the base currency (GBP for LSE, EUR for EPA).
+		// EPS is in pence (GBp) for LSE, base currency for others.
+		if f.TradingCurrency != "" && f.TradingCurrency != "USD" {
+			baseCcy := f.TradingCurrency
+			if baseCcy == "GBp" {
+				baseCcy = "GBP"
+			}
+			if rate, ok := fxRates[baseCcy]; ok {
+				if f.MarketCap != nil {
+					converted := *f.MarketCap * rate
+					f.MarketCap = &converted
+					changed = true
+				}
+				if f.EPS != nil {
+					epsRate := rate
+					if f.TradingCurrency == "GBp" {
+						epsRate = rate / 100 // pence → USD
+					}
+					converted := *f.EPS * epsRate
+					f.EPS = &converted
+					changed = true
+				}
+			} else {
+				f.MarketCap = nil
+				f.EPS = nil
+				f.FXError = true
+				changed = true
+			}
+		}
+		if changed {
+			data[ticker] = f
 		}
 	}
 
