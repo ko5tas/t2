@@ -67,10 +67,10 @@
             <td class="value">N/A</td>
             <td class="value">N/A</td>
             <td class="value">N/A</td>{{else}}<td class="value {{peClass $p.PERatio $p.SectorPE $p.IsETF}}"{{if $p.Sector}} title="{{peTooltip $p.Sector $p.SectorPE}}"{{end}}>{{formatFund $p.PERatio $p.FundsFetched}}</td>
-            <td class="value">{{formatFund $p.EPS $p.FundsFetched}}</td>
+            <td class="value">{{fxFund $p.EPS $p.FundsFetched $p.FXError}}</td>
             <td class="value">{{formatFundPct $p.EPSGrowthPct $p.FundsFetched}}</td>
-            <td class="value">{{formatBigNum $p.MarketCapM $p.FundsFetched}}</td>
-            <td class="value">{{formatBigNum $p.RevenueM $p.FundsFetched}}</td>
+            <td class="value">{{fxBigNum $p.MarketCapM $p.FundsFetched $p.FXError}}</td>
+            <td class="value">{{fxBigNum $p.RevenueM $p.FundsFetched $p.FXError}}</td>
             <td class="value">{{formatFundPct $p.ProfitMarginPct $p.FundsFetched}}</td>{{end}}
         </tr>
         {{end}}

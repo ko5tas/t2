@@ -175,9 +175,10 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 	if f.PERatio == nil {
 		f.PERatio = extractYahooRaw(r.DefaultKeyStatistics, "trailingPE")
 	}
+	// summaryDetail.marketCap is in the trading currency.
 	f.MarketCap = extractYahooRaw(r.SummaryDetail, "marketCap")
-	if f.MarketCap == nil {
-		f.MarketCap = extractYahooRaw(r.FinancialData, "marketCap")
+	if v, ok := r.SummaryDetail["currency"].(string); ok {
+		f.TradingCurrency = v
 	}
 	f.EPS = extractYahooRaw(r.DefaultKeyStatistics, "trailingEps")
 	f.EPSGrowthPct = extractYahooRaw(r.FinancialData, "earningsGrowth")
@@ -198,7 +199,11 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 		pct := *f.EPSGrowthPct * 100
 		f.EPSGrowthPct = &pct
 	}
+	// Always extract revenue; currency conversion is handled by RefreshAll.
 	f.Revenue = extractYahooRaw(r.FinancialData, "totalRevenue")
+	if v, ok := r.FinancialData["financialCurrency"].(string); ok {
+		f.FinancialCurrency = v
+	}
 	f.ProfitMarginPct = extractYahooRaw(r.FinancialData, "profitMargins")
 	if f.ProfitMarginPct == nil {
 		f.ProfitMarginPct = extractYahooRaw(r.DefaultKeyStatistics, "profitMargins")
@@ -217,6 +222,67 @@ func fetchYahoo(auth *yahooAuth, yahooTicker string) (*Fundamentals, error) {
 	}
 
 	return f, nil
+}
+
+// fetchYahooFXRate fetches the exchange rate for a currency pair from Yahoo (e.g. "TWD" → TWDUSD=X).
+// Returns the rate to multiply by to convert from the given currency to USD.
+// Callers should normalize GBp to GBP before calling.
+func fetchYahooFXRate(auth *yahooAuth, currency string) (float64, error) {
+	ticker := currency + "USD=X"
+
+	auth.mu.Lock()
+	crumb := auth.crumb
+	client := auth.client
+	auth.mu.Unlock()
+
+	url := fmt.Sprintf(
+		"https://query1.finance.yahoo.com/v10/finance/quoteSummary/%s?modules=price&crumb=%s",
+		ticker, crumb,
+	)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("yahoo FX request for %s: %w", ticker, err)
+	}
+	req.Header.Set("User-Agent", yahooUserAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("yahoo FX fetch %s: %w", ticker, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		return 0, fmt.Errorf("yahoo FX %s: status %d", ticker, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("yahoo FX read %s: %w", ticker, err)
+	}
+
+	var result struct {
+		QuoteSummary struct {
+			Result []struct {
+				Price map[string]interface{} `json:"price"`
+			} `json:"result"`
+		} `json:"quoteSummary"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return 0, fmt.Errorf("yahoo FX parse %s: %w", ticker, err)
+	}
+
+	if len(result.QuoteSummary.Result) == 0 {
+		return 0, fmt.Errorf("yahoo FX %s: no results", ticker)
+	}
+
+	rate := extractYahooRaw(result.QuoteSummary.Result[0].Price, "regularMarketPrice")
+	if rate == nil || *rate == 0 {
+		return 0, fmt.Errorf("yahoo FX %s: no rate", ticker)
+	}
+
+
+	return *rate, nil
 }
 
 // extractYahooRaw extracts the "raw" value from a Yahoo Finance {"raw": N, "fmt": "..."} object.

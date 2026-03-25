@@ -62,6 +62,41 @@ var funcMap = template.FuncMap{
 			return fmt.Sprintf("%s%.2f (£%.2f)", sym, price, priceGBP)
 		}
 	},
+	"fxFund": func(v *float64, fetched bool, fxError bool) string {
+		if v == nil && fxError {
+			return "FX!"
+		}
+		if v == nil {
+			return "—"
+		}
+		return fmt.Sprintf("%.2f", *v)
+	},
+	"fxBigNum": func(v *float64, fetched bool, fxError bool) string {
+		if v == nil && fxError {
+			return "FX!"
+		}
+		if v == nil {
+			return "—"
+		}
+		n := *v
+		neg := ""
+		if n < 0 {
+			neg = "-"
+			n = -n
+		}
+		switch {
+		case n >= 1e12:
+			return fmt.Sprintf("%s$%.1fT", neg, n/1e12)
+		case n >= 1e9:
+			return fmt.Sprintf("%s$%.1fB", neg, n/1e9)
+		case n >= 1e6:
+			return fmt.Sprintf("%s$%.1fM", neg, n/1e6)
+		case n >= 1e3:
+			return fmt.Sprintf("%s$%.1fK", neg, n/1e3)
+		default:
+			return fmt.Sprintf("%s$%.0f", neg, n)
+		}
+	},
 	"formatBigNum": func(v *float64, fetched bool) string {
 		if v == nil {
 			return "—"

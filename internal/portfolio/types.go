@@ -33,6 +33,7 @@ type Position struct {
 	Sector          string   // sector name (e.g. "Technology")
 	SectorPE        *float64 // sector median P/E for comparison
 	IsETF           bool     // true if Trading212 instrument type is ETF
+	FXError         bool     // true if FX conversion failed for fundamentals
 	BuyHistory      []BuyEntry // all buy orders, sorted oldest-first
 }
 
