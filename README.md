@@ -19,9 +19,11 @@ A web dashboard for viewing your Trading212 portfolio positions at a glance.
 - Buy history tooltips: hover over stock name to see purchase dates and quantities
 - Historical FX rate conversion for foreign-currency orders
 - Incremental history caching: orders and dividends cached to disk
-  - Local: `~/.cache/t2/` — systemd fallback: `/var/cache/t2/` (owner-only permissions)
+  - Location: `$CACHE_DIRECTORY` (set by systemd `CacheDirectory=t2`), then `~/.cache/t2/`, then `/var/cache/t2/` (owner-only permissions)
   - Cold start: fetches all pages from API, saves to disk
   - Warm start: fetches only new data by finding overlap with cache (typically 1 API call)
+  - Optional `backup_dir`: mirror cache to a Dropbox/OneDrive-synced folder for off-machine durability and rehydration after a fresh install
+- Per-ticker reconciliation: works around a Trading212 API bug where the unfiltered paginated `/equity/history/orders` endpoint silently drops orders in certain time windows (the same orders are returned when queried with `?ticker=X`). After each refresh, t2 detects closed positions with suspiciously zero recovered amounts and fetches them per-ticker to fill in the gaps.
 - Sortable columns (click headers to toggle ascending/descending)
 - Default sort by market value descending
 - Auto-refresh every 15 minutes + manual refresh button per row
@@ -104,6 +106,22 @@ The config file is searched in order:
 | `refresh_interval` | `15m` | How often to refresh positions |
 | `listen` | `:8080` | HTTP server listen address |
 | `finnhub_api_key` | (optional) | [Finnhub](https://finnhub.io) API key for US stock fundamentals (free tier) |
+| `backup_dir` | (optional) | Mirror cache to a second directory (e.g. a Dropbox/OneDrive-synced folder) for off-machine durability |
+
+### Running as a systemd service
+
+If you install t2 as a system service running under a dedicated `User=t2`, add the following to your unit file so the cache lives in a directory the service user can actually write to:
+
+```ini
+[Service]
+User=t2
+Group=t2
+CacheDirectory=t2
+StateDirectory=t2
+ExecStart=/usr/bin/t2
+```
+
+`CacheDirectory=t2` makes systemd create `/var/cache/t2/` owned by user `t2` on each start and exposes the path via `$CACHE_DIRECTORY`, which t2 prefers over the user's home (`/nonexistent` for system users). Without this, t2 silently falls back to writing the cache to the working directory (`/`) where it can't be persisted, causing every restart to re-fetch ~1,100 orders from Trading212 (a ~4-minute warmup).
 
 ## Architecture
 

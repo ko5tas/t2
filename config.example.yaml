@@ -15,3 +15,13 @@ base_url: "https://live.trading212.com/api/v0"
 # Optional: Finnhub API key for US stock fundamentals (free at https://finnhub.io)
 # Without this, all fundamentals are fetched from Yahoo Finance
 # finnhub_api_key: "your-finnhub-key-here"
+
+# Optional: mirror the orders.json / dividends.json cache files to a second
+# location after every successful fetch. Point this at a Dropbox / OneDrive /
+# rclone-synced directory to keep an off-machine archive of your trading
+# history — useful because Trading212 is known to drop orders from their
+# paginated history endpoint and may eventually purge older records entirely.
+# At startup, if the primary cache is missing but the backup exists, t2
+# rehydrates from it (so a fresh DietPi install picks up where the old one
+# left off). Leave commented out to disable.
+# backup_dir: "/home/dietpi/Dropbox/t2"

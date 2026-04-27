@@ -113,6 +113,29 @@ func (c *Client) GetOrderHistory() ([]OrderHistoryItem, error) {
 	return all, nil
 }
 
+// GetOrderHistoryByTicker fetches all order history pages for a single ticker.
+// Used as a workaround for a Trading212 API bug where the unfiltered
+// /equity/history/orders pagination silently drops orders in certain time
+// windows; the ?ticker=X filter returns the missing orders correctly.
+func (c *Client) GetOrderHistoryByTicker(ticker string) ([]OrderHistoryItem, error) {
+	var all []OrderHistoryItem
+	path := fmt.Sprintf("/equity/history/orders?ticker=%s&limit=50", ticker)
+	for {
+		var page OrderHistoryResponse
+		if err := c.getWithRetry(path, &page); err != nil {
+			return nil, fmt.Errorf("fetching order history for %s: %w", ticker, err)
+		}
+		all = append(all, page.Items...)
+		next := nextPage(page.NextPagePath)
+		if next == "" {
+			break
+		}
+		path = next
+		time.Sleep(11 * time.Second)
+	}
+	return all, nil
+}
+
 // GetDividendHistoryPage fetches a single page of dividend history.
 // Pass "" for the first page, or a nextPagePath value for subsequent pages.
 func (c *Client) GetDividendHistoryPage(path string) ([]DividendHistoryItem, string, error) {

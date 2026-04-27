@@ -431,6 +431,9 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		TotalReturn         float64
 		TotalProfit         float64
 		TotalPerformancePct float64
+		OrdersFetchedAt     time.Time
+		DividendsFetchedAt  time.Time
+		BackupConfigured    bool
 	}{
 		Positions:           positions,
 		Sort:                sortBy,
@@ -440,6 +443,9 @@ func (h *Handler) handleHistory(w http.ResponseWriter, r *http.Request) {
 		TotalReturn:         totalReturn,
 		TotalProfit:         totalReturn - totalInvested,
 		TotalPerformancePct: totalPerfPct,
+		OrdersFetchedAt:     summary.OrdersFetchedAt,
+		DividendsFetchedAt:  summary.DividendsFetchedAt,
+		BackupConfigured:    summary.BackupConfigured,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

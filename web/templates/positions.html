@@ -115,7 +115,7 @@
     </tbody>
 </table>
 <div class="header">
-    <div class="updated">Last updated: {{.LastUpdated.Format "15:04:05 02 Jan 2006"}}</div>
+    <div class="updated">Last updated: {{.LastUpdated.Format "15:04:05 02 Jan 2006"}}{{if not .OrdersFetchedAt.IsZero}} <span style="color:#666;font-size:11px;margin-left:12px;">orders: {{.OrdersFetchedAt.Format "02 Jan 15:04"}}</span>{{end}}{{if not .DividendsFetchedAt.IsZero}} <span style="color:#666;font-size:11px;">divs: {{.DividendsFetchedAt.Format "02 Jan 15:04"}}</span>{{end}}{{if .BackupConfigured}} <span style="color:#666;font-size:11px;">· backup ✓</span>{{end}}</div>
 </div>
 <div hx-get="/positions?sort={{.Sort}}&dir={{.Dir}}"
      hx-trigger="every {{.RefreshSeconds}}s"
