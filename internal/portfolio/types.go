@@ -52,6 +52,9 @@ type Summary struct {
 	TotalPerformancePct float64
 	LastUpdated         time.Time
 	AnyProfitable       bool
-	ClosedPositions []Position // fully sold positions from order history
-	Error           string     // non-empty if last fetch failed
+	ClosedPositions     []Position // fully sold positions from order history
+	OrdersFetchedAt     time.Time  // when the orders cache was last successfully fetched
+	DividendsFetchedAt  time.Time  // when the dividends cache was last successfully fetched
+	BackupConfigured    bool       // true if backup_dir is set (shows backup status in footer)
+	Error               string     // non-empty if last fetch failed
 }

@@ -17,6 +17,7 @@ type Config struct {
 	Listen          string        `yaml:"listen"`
 	BaseURL         string        `yaml:"base_url"`
 	FinnhubAPIKey   string        `yaml:"finnhub_api_key"`
+	BackupDir       string        `yaml:"backup_dir"`
 }
 
 // rawConfig is used for YAML unmarshaling since time.Duration
@@ -28,6 +29,7 @@ type rawConfig struct {
 	Listen          string `yaml:"listen"`
 	BaseURL         string `yaml:"base_url"`
 	FinnhubAPIKey   string `yaml:"finnhub_api_key"`
+	BackupDir       string `yaml:"backup_dir"`
 }
 
 // Load reads the configuration file and returns a validated Config.
@@ -54,6 +56,7 @@ func Load() (*Config, error) {
 		Listen:        raw.Listen,
 		BaseURL:       raw.BaseURL,
 		FinnhubAPIKey: raw.FinnhubAPIKey,
+		BackupDir:     raw.BackupDir,
 	}
 
 	// Parse refresh interval with default.

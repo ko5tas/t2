@@ -31,7 +31,7 @@ func main() {
 	}
 
 	log.Println("loading instrument and exchange metadata...")
-	svc, err := portfolio.NewService(client, fundsSvc)
+	svc, err := portfolio.NewService(client, fundsSvc, cfg.BackupDir)
 	if err != nil {
 		log.Fatalf("portfolio service: %v", err)
 	}

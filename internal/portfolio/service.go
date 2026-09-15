@@ -2,6 +2,7 @@ package portfolio
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -27,21 +28,36 @@ type Service struct {
 	summaryMu sync.RWMutex
 	summary   *Summary // cached summary for cheap page polls
 
-	ordersCachePath    string // ~/.cache/t2/orders.json
-	dividendsCachePath string // ~/.cache/t2/dividends.json
+	ordersCachePath    string // primary cache, e.g. ~/.cache/t2/orders.json
+	dividendsCachePath string // primary cache, e.g. ~/.cache/t2/dividends.json
+	backupDir          string // optional second location (e.g. a Dropbox-synced folder)
 }
 
 // NewService creates a new portfolio service and loads initial metadata.
 // It retries up to 5 times with 30s backoff if rate-limited on startup.
-func NewService(client *trading212.Client, fundsSvc *fundamentals.Service) (*Service, error) {
+// backupDir, if non-empty, is a second location where orders.json and
+// dividends.json are mirrored after each successful fetch — typically a
+// path inside a Dropbox/OneDrive/rclone-synced directory, so the user's
+// trading history survives a wiped cache or a fresh DietPi install.
+func NewService(client *trading212.Client, fundsSvc *fundamentals.Service, backupDir string) (*Service, error) {
 	s := &Service{
-		client:   client,
-		fundsSvc: fundsSvc,
-		returns:  make(map[string]tickerReturns),
+		client:    client,
+		fundsSvc:  fundsSvc,
+		returns:   make(map[string]tickerReturns),
+		backupDir: backupDir,
 	}
 	if dir := cacheDir(); dir != "" {
 		s.ordersCachePath = filepath.Join(dir, "orders.json")
 		s.dividendsCachePath = filepath.Join(dir, "dividends.json")
+		log.Printf("history-cache: using %s", dir)
+	}
+	if backupDir != "" {
+		if err := os.MkdirAll(backupDir, 0700); err != nil {
+			log.Printf("history-cache: backup_dir %q is not writable: %v (backup disabled)", backupDir, err)
+			s.backupDir = ""
+		} else {
+			log.Printf("history-cache: mirroring to backup_dir %s", backupDir)
+		}
 	}
 	var err error
 	for attempt := 1; attempt <= 5; attempt++ {
@@ -77,13 +93,15 @@ func (s *Service) StartReturnsRefresh(interval time.Duration) {
 		// Initial fetch after a short delay to let metadata settle.
 		time.Sleep(5 * time.Second)
 		s.refreshReturns()
-		s.refreshSummary() // update summary now that returns are available
+		s.reconcileMissingReturns() // workaround for T212 pagination gaps
+		s.refreshSummary()           // update summary now that returns are available
 		s.tryFundamentalsRefresh()
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for range ticker.C {
 			s.refreshReturns()
+			s.reconcileMissingReturns()
 			s.refreshSummary()
 		}
 	}()
@@ -212,72 +230,217 @@ func toGBP(item trading212.OrderHistoryItem, rates map[string][]fxRateEntry) flo
 	return wi.NetValue
 }
 
+// processIntoReturns folds a slice of orders + dividends into the per-ticker
+// returns map. Pure function — no I/O. Extracted so reconcileMissingReturns
+// can re-run it on an updated cache without re-fetching from the API.
+func processIntoReturns(orders []trading212.OrderHistoryItem, dividends []trading212.DividendHistoryItem) map[string]tickerReturns {
+	returns := make(map[string]tickerReturns)
+	fxRates := buildFxRateLookup(orders)
+	for _, item := range orders {
+		// Skip stock splits — they are zero-sum internal rebookings.
+		if item.Fill.Type == "STOCK_SPLIT" {
+			continue
+		}
+		// Skip unfilled orders (the cancelled-order shape T212 returns has
+		// no fill object at all, which unmarshals to all-zero values).
+		if item.Fill.WalletImpact.Currency == "" {
+			continue
+		}
+		netGBP := toGBP(item, fxRates)
+		tr := returns[item.Order.Ticker]
+		switch item.Order.Side {
+		case "BUY":
+			tr.totalBuyCost += netGBP
+			fillDate := item.Fill.FilledAt
+			if len(fillDate) >= 10 {
+				fillDate = fillDate[:10]
+			}
+			if tr.firstBought == "" || fillDate < tr.firstBought {
+				tr.firstBought = fillDate
+			}
+			tr.buyHistory = append(tr.buyHistory, BuyEntry{
+				Date:     fillDate,
+				Quantity: item.Fill.Quantity,
+			})
+		case "SELL":
+			tr.totalSellProceeds += netGBP
+		}
+		returns[item.Order.Ticker] = tr
+	}
+	// Sort each ticker's buy history oldest-first.
+	for ticker, tr := range returns {
+		sort.Slice(tr.buyHistory, func(i, j int) bool {
+			return tr.buyHistory[i].Date < tr.buyHistory[j].Date
+		})
+		returns[ticker] = tr
+	}
+	for _, item := range dividends {
+		tr := returns[item.Ticker]
+		tr.totalDividends += item.Amount
+		returns[item.Ticker] = tr
+	}
+	return returns
+}
+
 // refreshReturns fetches order and dividend history and updates the cache.
 func (s *Service) refreshReturns() {
-	returns := make(map[string]tickerReturns)
-
-	orders, err := fetchOrdersIncremental(s.client, s.ordersCachePath)
+	orders, err := fetchOrdersIncremental(s.client, s.ordersCachePath, s.backupDir)
 	if err != nil {
 		log.Printf("order history fetch failed: %v", err)
 	} else {
-		fxRates := buildFxRateLookup(orders)
-		for _, item := range orders {
-			// Skip stock splits — they are zero-sum internal rebookings.
-			if item.Fill.Type == "STOCK_SPLIT" {
-				continue
-			}
-			// Skip unfilled orders (safety net).
-			if item.Fill.WalletImpact.Currency == "" {
-				continue
-			}
-			netGBP := toGBP(item, fxRates)
-			tr := returns[item.Order.Ticker]
-			switch item.Order.Side {
-			case "BUY":
-				tr.totalBuyCost += netGBP
-				fillDate := item.Fill.FilledAt
-				if len(fillDate) >= 10 {
-					fillDate = fillDate[:10]
-				}
-				if tr.firstBought == "" || fillDate < tr.firstBought {
-					tr.firstBought = fillDate
-				}
-				tr.buyHistory = append(tr.buyHistory, BuyEntry{
-					Date:     fillDate,
-					Quantity: item.Fill.Quantity,
-				})
-			case "SELL":
-				tr.totalSellProceeds += netGBP
-			}
-			returns[item.Order.Ticker] = tr
-		}
-		// Sort each ticker's buy history oldest-first.
-		for ticker, tr := range returns {
-			sort.Slice(tr.buyHistory, func(i, j int) bool {
-				return tr.buyHistory[i].Date < tr.buyHistory[j].Date
-			})
-			returns[ticker] = tr
-		}
 		log.Printf("loaded %d historical orders", len(orders))
+		warnIfPaginationGaps(orders)
 	}
 
 	time.Sleep(2 * time.Second) // respect rate limits between endpoints
 
-	dividends, err := fetchDividendsIncremental(s.client, s.dividendsCachePath)
+	dividends, err := fetchDividendsIncremental(s.client, s.dividendsCachePath, s.backupDir)
 	if err != nil {
 		log.Printf("dividend history fetch failed: %v", err)
 	} else {
-		for _, item := range dividends {
-			tr := returns[item.Ticker]
-			tr.totalDividends += item.Amount
-			returns[item.Ticker] = tr
-		}
 		log.Printf("loaded %d historical dividends", len(dividends))
 	}
+
+	returns := processIntoReturns(orders, dividends)
 
 	s.returnsMu.Lock()
 	s.returns = returns
 	s.returnsMu.Unlock()
+}
+
+// warnIfPaginationGaps logs a warning if the unfiltered orders stream has
+// gaps > 30 days between consecutive fills. T212's paginated history
+// endpoint silently drops orders in certain windows for some accounts — see
+// reconcileMissingReturns for the workaround. Detecting the gap up front
+// gives the user (and future maintainers) a heads-up that the unfiltered
+// stream is incomplete and that reconciliation is doing work that should
+// not have been necessary.
+func warnIfPaginationGaps(orders []trading212.OrderHistoryItem) {
+	dates := make([]string, 0, len(orders))
+	for _, o := range orders {
+		if o.Fill.FilledAt != "" {
+			dates = append(dates, o.Fill.FilledAt)
+		}
+	}
+	if len(dates) < 2 {
+		return
+	}
+	sort.Strings(dates)
+	const gapThresholdDays = 30
+	for i := 1; i < len(dates); i++ {
+		ta, errA := time.Parse(time.RFC3339, dates[i-1])
+		tb, errB := time.Parse(time.RFC3339, dates[i])
+		if errA != nil || errB != nil {
+			continue
+		}
+		gap := tb.Sub(ta).Hours() / 24
+		if gap > gapThresholdDays {
+			log.Printf("WARNING: unfiltered order history has a %.0f-day gap between %s and %s — Trading212 pagination is dropping orders; reconciliation will fetch them per-ticker",
+				gap, dates[i-1][:10], dates[i][:10])
+		}
+	}
+}
+
+// reconcileMissingReturns is a workaround for a Trading212 API bug where the
+// unfiltered /equity/history/orders endpoint silently drops orders in
+// certain time windows for some accounts. The same orders ARE returned when
+// queried with the ?ticker=X filter.
+//
+// Strategy: after the unfiltered fetch builds the returns map, identify
+// "closed-position candidates" — tickers with BUYs in cache but no SELLs
+// and no dividends, and not in the current open positions. These are
+// almost certainly stocks the user fully sold but where the SELLs landed
+// inside a pagination gap. For each such ticker, do a per-ticker fetch
+// (cheap, usually one page) and merge any new orders into the cache.
+//
+// Cost is bounded by the number of mismatched closed positions, not the
+// portfolio size — typically a handful, sometimes zero.
+func (s *Service) reconcileMissingReturns() {
+	if s.ordersCachePath == "" {
+		return // no persistent cache, nothing to reconcile against
+	}
+	positions, err := s.client.GetPositions()
+	if err != nil {
+		log.Printf("reconcile: GetPositions failed: %v (skipping)", err)
+		return
+	}
+	openTickers := make(map[string]bool, len(positions))
+	for _, p := range positions {
+		openTickers[p.Ticker] = true
+	}
+
+	s.returnsMu.RLock()
+	var candidates []string
+	for ticker, tr := range s.returns {
+		if openTickers[ticker] {
+			continue
+		}
+		if tr.totalBuyCost == 0 {
+			continue
+		}
+		// A closed position with zero recovered (no sells, no divs) is the
+		// fingerprint of the T212 pagination bug — even fully-lost positions
+		// usually have a few pence in trailing fractional sells.
+		if tr.totalSellProceeds == 0 && tr.totalDividends == 0 {
+			candidates = append(candidates, ticker)
+		}
+	}
+	s.returnsMu.RUnlock()
+
+	if len(candidates) == 0 {
+		log.Printf("reconcile: no closed-position candidates need filling")
+		return
+	}
+	log.Printf("reconcile: %d closed-position candidate(s) may have missing sells; fetching per-ticker", len(candidates))
+
+	cached := loadOrdersCache(s.ordersCachePath)
+	knownKeys := make(map[string]bool, len(cached))
+	for _, ci := range cached {
+		knownKeys[orderKey(ci)] = true
+	}
+
+	var newOrders []trading212.OrderHistoryItem
+	for i, ticker := range candidates {
+		if i > 0 {
+			time.Sleep(11 * time.Second) // 6 req/60s rate limit
+		}
+		items, err := s.client.GetOrderHistoryByTicker(ticker)
+		if err != nil {
+			log.Printf("reconcile: %s fetch failed: %v", ticker, err)
+			continue
+		}
+		added := 0
+		for _, item := range items {
+			// Skip cancelled orders (the no-fill shape T212 returns).
+			if item.Fill.WalletImpact.Currency == "" {
+				continue
+			}
+			k := orderKey(item)
+			if knownKeys[k] {
+				continue
+			}
+			newOrders = append(newOrders, item)
+			knownKeys[k] = true
+			added++
+		}
+		log.Printf("reconcile: %s found %d previously-missing order(s)", ticker, added)
+	}
+
+	if len(newOrders) == 0 {
+		log.Printf("reconcile: 0 new orders across %d candidate(s)", len(candidates))
+		return
+	}
+
+	merged := append(newOrders, cached...)
+	saveOrdersCache(s.ordersCachePath, merged)
+	mirrorOrders(s.backupDir, merged)
+
+	dividends := loadDividendsCache(s.dividendsCachePath)
+	returns := processIntoReturns(merged, dividends)
+	s.returnsMu.Lock()
+	s.returns = returns
+	s.returnsMu.Unlock()
+	log.Printf("reconcile: merged %d previously-missing order(s) into cache and refreshed returns map", len(newOrders))
 }
 
 // cachedReturns returns the current cached returns map.
@@ -580,11 +743,28 @@ func (s *Service) refreshSummary() {
 		TotalPerformancePct: totalPerfPct,
 		AnyProfitable:       anyProfitable,
 		LastUpdated:         time.Now(),
+		OrdersFetchedAt:     cacheMTime(s.ordersCachePath),
+		DividendsFetchedAt:  cacheMTime(s.dividendsCachePath),
+		BackupConfigured:    s.backupDir != "",
 	}
 
 	s.summaryMu.Lock()
 	s.summary = summary
 	s.summaryMu.Unlock()
+}
+
+// cacheMTime returns the file modification time of a cache path, or the
+// zero time if the file is missing/unreadable. Used to surface
+// "last successful fetch" in the dashboard footer.
+func cacheMTime(path string) time.Time {
+	if path == "" {
+		return time.Time{}
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
 }
 
 func computeReturn(tr tickerReturns) (ret, retPct, invested float64) {

@@ -39,19 +39,31 @@ func dividendKey(item trading212.DividendHistoryItem) string {
 }
 
 // cacheDir returns the t2 cache directory path.
-// Prefers ~/.cache/t2 for local users, falls back to /var/cache/t2 for system services.
+// Order: $CACHE_DIRECTORY (set by systemd CacheDirectory=), $HOME/.cache/t2,
+// then /var/cache/t2 as a last resort.
 func cacheDir() string {
-	if home, err := os.UserHomeDir(); err == nil {
+	// systemd sets CACHE_DIRECTORY when the unit has CacheDirectory=t2.
+	// This is the right answer for service installations.
+	if dir := os.Getenv("CACHE_DIRECTORY"); dir != "" {
+		if err := os.MkdirAll(dir, 0700); err == nil {
+			return dir
+		}
+		log.Printf("history-cache: CACHE_DIRECTORY=%q is not writable", dir)
+	}
+	// Honor $HOME but skip the well-known /nonexistent placeholder used for
+	// system users — MkdirAll would silently succeed if a stale directory
+	// existed and silently fail otherwise.
+	if home, err := os.UserHomeDir(); err == nil && home != "" && home != "/nonexistent" {
 		dir := filepath.Join(home, ".cache", "t2")
 		if err := os.MkdirAll(dir, 0700); err == nil {
 			return dir
 		}
 	}
-	// Fallback for systemd services where $HOME is /nonexistent.
 	const fallback = "/var/cache/t2"
 	if err := os.MkdirAll(fallback, 0700); err == nil {
 		return fallback
 	}
+	log.Printf("history-cache: WARNING — no writable cache directory found; cache disabled")
 	return ""
 }
 
@@ -69,6 +81,27 @@ func loadOrdersCache(path string) []trading212.OrderHistoryItem {
 	log.Printf("history-cache: loaded %d orders from disk (cached %s ago)",
 		len(cache.Items), time.Since(cache.FetchedAt).Round(time.Minute))
 	return cache.Items
+}
+
+// loadOrdersCacheWithFallback reads the primary cache and falls back to the
+// backup_dir copy if the primary is missing. Used at startup so a fresh
+// install (or wiped cache directory) can rehydrate from the user's cloud
+// backup without re-fetching everything from Trading212.
+func loadOrdersCacheWithFallback(path, backupDir string) []trading212.OrderHistoryItem {
+	if items := loadOrdersCache(path); items != nil {
+		return items
+	}
+	if backupDir == "" {
+		return nil
+	}
+	bp := filepath.Join(backupDir, "orders.json")
+	items := loadOrdersCache(bp)
+	if items != nil {
+		log.Printf("history-cache: rehydrated %d orders from backup_dir (%s)", len(items), bp)
+		// Seed the primary cache so subsequent loads don't re-touch the backup.
+		saveOrdersCache(path, items)
+	}
+	return items
 }
 
 // saveOrdersCache writes the orders cache to disk.
@@ -109,6 +142,23 @@ func loadDividendsCache(path string) []trading212.DividendHistoryItem {
 	return cache.Items
 }
 
+// loadDividendsCacheWithFallback mirrors loadOrdersCacheWithFallback.
+func loadDividendsCacheWithFallback(path, backupDir string) []trading212.DividendHistoryItem {
+	if items := loadDividendsCache(path); items != nil {
+		return items
+	}
+	if backupDir == "" {
+		return nil
+	}
+	bp := filepath.Join(backupDir, "dividends.json")
+	items := loadDividendsCache(bp)
+	if items != nil {
+		log.Printf("history-cache: rehydrated %d dividends from backup_dir (%s)", len(items), bp)
+		saveDividendsCache(path, items)
+	}
+	return items
+}
+
 // saveDividendsCache writes the dividends cache to disk.
 func saveDividendsCache(path string, items []trading212.DividendHistoryItem) {
 	if path == "" {
@@ -131,10 +181,30 @@ func saveDividendsCache(path string, items []trading212.DividendHistoryItem) {
 	log.Printf("history-cache: saved %d dividends to disk", len(items))
 }
 
+// mirrorOrders writes the same orders cache to a backup location (e.g. a
+// Dropbox- or rclone-synced directory). Errors are logged but not returned —
+// the primary cache write is what matters for runtime correctness.
+func mirrorOrders(backupDir string, items []trading212.OrderHistoryItem) {
+	if backupDir == "" {
+		return
+	}
+	saveOrdersCache(filepath.Join(backupDir, "orders.json"), items)
+}
+
+// mirrorDividends mirrors the dividends cache to a backup location.
+func mirrorDividends(backupDir string, items []trading212.DividendHistoryItem) {
+	if backupDir == "" {
+		return
+	}
+	saveDividendsCache(filepath.Join(backupDir, "dividends.json"), items)
+}
+
 // fetchOrdersIncremental fetches order history incrementally, using the cache
 // to avoid re-fetching pages that overlap with already-known data.
-func fetchOrdersIncremental(client *trading212.Client, cachePath string) ([]trading212.OrderHistoryItem, error) {
-	cached := loadOrdersCache(cachePath)
+// If backupDir is non-empty, the cache is mirrored there after each successful
+// save and used as a fallback rehydration source if the primary cache is missing.
+func fetchOrdersIncremental(client *trading212.Client, cachePath, backupDir string) ([]trading212.OrderHistoryItem, error) {
+	cached := loadOrdersCacheWithFallback(cachePath, backupDir)
 
 	// Build set of known keys from cache.
 	known := make(map[string]bool, len(cached))
@@ -180,14 +250,17 @@ func fetchOrdersIncremental(client *trading212.Client, cachePath string) ([]trad
 	// Prepend new items (newest-first) to cached items.
 	merged := append(newItems, cached...)
 	saveOrdersCache(cachePath, merged)
+	mirrorOrders(backupDir, merged)
 	log.Printf("history-cache: %d new orders fetched, total %d", len(newItems), len(merged))
 	return merged, nil
 }
 
 // fetchDividendsIncremental fetches dividend history incrementally, using the cache
 // to avoid re-fetching pages that overlap with already-known data.
-func fetchDividendsIncremental(client *trading212.Client, cachePath string) ([]trading212.DividendHistoryItem, error) {
-	cached := loadDividendsCache(cachePath)
+// If backupDir is non-empty, the cache is mirrored there after each successful
+// save and used as a fallback rehydration source if the primary cache is missing.
+func fetchDividendsIncremental(client *trading212.Client, cachePath, backupDir string) ([]trading212.DividendHistoryItem, error) {
+	cached := loadDividendsCacheWithFallback(cachePath, backupDir)
 
 	known := make(map[string]bool, len(cached))
 	for _, item := range cached {
@@ -231,6 +304,7 @@ func fetchDividendsIncremental(client *trading212.Client, cachePath string) ([]t
 
 	merged := append(newItems, cached...)
 	saveDividendsCache(cachePath, merged)
+	mirrorDividends(backupDir, merged)
 	log.Printf("history-cache: %d new dividends fetched, total %d", len(newItems), len(merged))
 	return merged, nil
 }
